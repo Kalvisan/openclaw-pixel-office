@@ -1,0 +1,19 @@
+{
+  "name": "openclaw-pixel-office",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "pnpm -r run build",
+    "dev": "pnpm -r run dev --parallel",
+    "dev:site": "pnpm --filter site dev",
+    "dev:runtime": "pnpm --filter runtime dev",
+    "lint": "pnpm -r run lint"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

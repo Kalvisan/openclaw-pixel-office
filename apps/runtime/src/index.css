@@ -1,0 +1,9 @@
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  font-family: "JetBrains Mono", "Fira Code", monospace;
+  background: #0d1117;
+  color: #c9d1d9;
+}
