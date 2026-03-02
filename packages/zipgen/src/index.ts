@@ -1,43 +1,20 @@
 /**
- * Zip generator - creates openclaw-office project structure
+ * Zip generator - creates OpenClaw AgentPack structure (free-sample-v1.2.0 layout)
  * Used by site builder
  */
 
 import { strToU8, zipSync, type Zippable } from "fflate";
 import { serialize } from "@openclaw-office/toon";
 import type { Agent } from "@openclaw-office/core";
-
-const INSTALL_MD = `# OpenClaw Pixel Office - Installation
-
-## Quick start
-
-1. \`git clone\` this repo or extract the zip
-2. Copy \`.env.example\` to \`.env\` and configure OpenClaw endpoint
-3. \`pnpm install && pnpm build\`
-4. \`pnpm dev\` to start runtime
-
-## OpenClaw endpoint
-
-Set \`OPENCLAW_URL\` in .env (e.g. http://localhost:3000)
-
-## Structure
-
-- \`agents/\` - Agent definitions (.toon) with role, spots, character appearance
-- \`plans/templates/\` - Plan templates
-- \`office/\` - Office layout (layout.toon) with auto spots: desk, chair, closet, meeting
-- \`office/rpgjs/\` - RPGJS map (officemap.tmx) + tilesets for in-game view
-- \`runtime/\` - Config and docker-compose (optional)
-- \`ui/\` - Runtime build output
-
-## RPGJS office map
-
-When an office layout is configured, the zip includes \`office/rpgjs/\` with:
-- officemap.tmx - Tiled map for RPGJS v4
-- Room_Builder_Office.tsx, Modern_Office.tsx - Tilesets
-- PNG tileset images
-
-Copy these to your RPGJS project's main/worlds/maps/ to use the office in-game.
-`;
+import { agentToIdentityMd, agentToSoulMd } from "./agent-pack-content";
+import {
+  SOUL_PACK_DEFAULTS,
+  USER_MD,
+  TOOLS_MD,
+  MEMORY_MD,
+  HEARTBEAT_MD,
+  OPENCLAW_CHANNELS_TEMPLATE,
+} from "./agent-pack-templates";
 
 /** Floor material for room-builder system */
 export type FloorMaterialName = "purpleStone" | "grayTile" | "brownBrick" | "paleLilac";
@@ -55,6 +32,225 @@ export interface OfficeLayout {
   /** layers[0] = floor (rb_* walls/floors), layers[1+] = furniture/objects (in_*) */
   layers?: string[][][];
   spots?: Record<string, { x: number; y: number }[]>;
+  /** Blocked tiles for pathfinding (grid coords). From Office Design collision.blocked. */
+  collision?: { blocked: { x: number; y: number }[] };
+}
+
+/** Office Design JSON (Room Builder export v4) – sparse tiles, world coords */
+export interface OfficeDesignJson {
+  version?: number;
+  tileSize?: { width: number; height: number };
+  files?: Record<string, { imageName: string; imageWidth: number; imageHeight: number; columns: number; rows: number; totalTiles?: number }>;
+  world?: { infinite?: boolean; bounds?: { minX?: number; maxX?: number; minY?: number; maxY?: number } };
+  camera?: { x: number; y: number; zoom: number };
+  layers?: Array<{
+    id?: number;
+    name?: string;
+    type?: string;
+    tilesetKey?: string;
+    tiles?: Array<{ x: number; y: number; tileId?: number }>;
+  }>;
+  collision?: { blocked?: Array<{ x: number; y: number; blocked?: number }> };
+  spots?: { items?: Array<{ x: number; y: number; type?: string; label?: string | null }> };
+}
+
+/** Convert Office Design JSON (v4) to OfficeLayout. World coords → grid coords. */
+export function officeDesignJsonToOfficeLayout(json: OfficeDesignJson): OfficeLayout {
+  const bounds = json.world?.bounds ?? { minX: -20, maxX: 20, minY: -14, maxY: 14 };
+  const minX = bounds.minX ?? -20;
+  const maxX = bounds.maxX ?? 20;
+  const minY = bounds.minY ?? -14;
+  const maxY = bounds.maxY ?? 14;
+  const width = maxX - minX + 1;
+  const height = maxY - minY + 1;
+
+  const toGrid = (x: number, y: number) => ({ x: x - minX, y: y - minY });
+
+  const defaultFloor = "rb_6_0";
+  const floor: string[][] = Array(height)
+    .fill(null)
+    .map(() => Array(width).fill(""));
+  const objectLayers: string[][][] = [];
+
+  for (const layer of json.layers ?? []) {
+    const tilesetKey = layer.tilesetKey ?? layer.type ?? "base";
+    const tiles = layer.tiles ?? [];
+    if (tilesetKey === "base") {
+      for (const t of tiles) {
+        const tid = t.tileId ?? 0;
+        const { x, y } = toGrid(t.x, t.y);
+        if (y >= 0 && y < height && x >= 0 && x < width) {
+          const row = Math.floor(tid / 16);
+          const col = tid % 16;
+          floor[y][x] = `rb_${row}_${col}`;
+        }
+      }
+    } else {
+      const objLayer: string[][] = Array(height)
+        .fill(null)
+        .map(() => Array(width).fill(""));
+      for (const t of tiles) {
+        const tid = t.tileId ?? 0;
+        const { x, y } = toGrid(t.x, t.y);
+        if (y >= 0 && y < height && x >= 0 && x < width) {
+          const row = Math.floor(tid / 16);
+          const col = tid % 16;
+          objLayer[y][x] = `in_${row}_${col}`;
+        }
+      }
+      objectLayers.push(objLayer);
+    }
+  }
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (!floor[y][x]) floor[y][x] = defaultFloor;
+    }
+  }
+
+  const spots: Record<string, { x: number; y: number }[]> = {
+    desk: [],
+    chair: [],
+    meeting: [],
+    closet: [],
+  };
+  const spotMap: Record<string, keyof typeof spots> = {
+    work: "desk",
+    sit: "chair",
+    find: "closet",
+  };
+  for (const item of json.spots?.items ?? []) {
+    const type = (item.type ?? "sit").toLowerCase();
+    const key = spotMap[type] ?? "chair";
+    const { x, y } = toGrid(item.x, item.y);
+    if (y >= 0 && y < height && x >= 0 && x < width) {
+      spots[key].push({ x, y });
+    }
+  }
+
+  const collision = {
+    blocked: (json.collision?.blocked ?? []).map((b) => toGrid(b.x, b.y)),
+  };
+
+  return {
+    width,
+    height,
+    layers: [floor, ...objectLayers],
+    spots,
+    collision: collision.blocked.length > 0 ? collision : undefined,
+  };
+}
+
+/** Convert OfficeLayout to Office Design JSON (v4) – sparse tiles, world coords. */
+export function officeLayoutToOfficeDesignJson(layout: OfficeLayout): OfficeDesignJson {
+  const width = layout.width ?? 40;
+  const height = layout.height ?? 25;
+  const layers = getLayoutLayers(layout);
+  const minX = 0;
+  const maxX = width - 1;
+  const minY = 0;
+  const maxY = height - 1;
+
+  const toWorld = (gx: number, gy: number) => ({ x: gx + minX, y: gy + minY });
+
+  const result: OfficeDesignJson = {
+    version: 4,
+    tileSize: { width: 16, height: 16 },
+    files: {
+      base: {
+        imageName: "Room_Builder_Office_16x16.png",
+        imageWidth: 256,
+        imageHeight: 224,
+        columns: 16,
+        rows: 14,
+        totalTiles: 224,
+      },
+      assets: {
+        imageName: "Modern_Office_Black_Shadow.png",
+        imageWidth: 256,
+        imageHeight: 848,
+        columns: 16,
+        rows: 53,
+        totalTiles: 848,
+      },
+    },
+    world: { infinite: true, bounds: { minX, maxX, minY, maxY } },
+    camera: { x: width / 2, y: height / 2, zoom: 2 },
+    layers: [],
+    collision: { blocked: [] },
+    spots: { items: [] },
+  };
+
+  const baseTiles: Array<{ x: number; y: number; tileId: number }> = [];
+  const floorLayer = layers[0] ?? [];
+  for (let gy = 0; gy < height; gy++) {
+    for (let gx = 0; gx < width; gx++) {
+      const t = floorLayer[gy]?.[gx];
+      if (!t?.startsWith("rb_")) continue;
+      const m = t.match(/^rb_(\d+)_(\d+)$/);
+      if (!m) continue;
+      const row = parseInt(m[1], 10);
+      const col = parseInt(m[2], 10);
+      const { x, y } = toWorld(gx, gy);
+      baseTiles.push({ x, y, tileId: row * 16 + col });
+    }
+  }
+  result.layers!.push({
+    id: 0,
+    name: "Layer 0",
+    type: "base",
+    tilesetKey: "base",
+    tiles: baseTiles,
+  });
+
+  for (let li = 1; li < layers.length; li++) {
+    const objLayer = layers[li] ?? [];
+    const tiles: Array<{ x: number; y: number; tileId: number }> = [];
+    for (let gy = 0; gy < height; gy++) {
+      for (let gx = 0; gx < width; gx++) {
+        const t = objLayer[gy]?.[gx];
+        if (!t?.startsWith("in_")) continue;
+        const m = t.match(/^in_(\d+)_(\d+)$/);
+        if (!m) continue;
+        const row = parseInt(m[1], 10);
+        const col = parseInt(m[2], 10);
+        const { x, y } = toWorld(gx, gy);
+        tiles.push({ x, y, tileId: row * 16 + col });
+      }
+    }
+    result.layers!.push({
+      id: li,
+      name: `Layer ${li}`,
+      type: "assets",
+      tilesetKey: "assets",
+      tiles,
+    });
+  }
+
+  const spotTypeMap: Record<string, string> = {
+    desk: "work",
+    chair: "sit",
+    closet: "find",
+    meeting: "sit",
+  };
+  for (const [key, positions] of Object.entries(layout.spots ?? {})) {
+    for (const p of positions) {
+      const { x, y } = toWorld(p.x, p.y);
+      result.spots!.items!.push({
+        x,
+        y,
+        type: spotTypeMap[key] ?? "sit",
+        label: null,
+      });
+    }
+  }
+
+  for (const b of layout.collision?.blocked ?? []) {
+    const { x, y } = toWorld(b.x, b.y);
+    result.collision!.blocked!.push({ x, y, blocked: 1 });
+  }
+
+  return result;
 }
 
 /** Room_Builder firstgid=1, 224 tiles (16×14). Modern_Office_Black_Shadow firstgid=225, 339 tiles (15×23). */
@@ -215,29 +411,98 @@ export interface ZipConfig {
   rpgjsAssets?: { roomPng: Uint8Array; interiorsPng: Uint8Array };
 }
 
+/** Default model for openclaw-config.json */
+const DEFAULT_MODEL = "anthropic/claude-sonnet-4-20250514";
+
+function agentsToAgentsMd(agents: Agent[]): string {
+  const lines = [
+    "# AGENTS.md — Team Overview",
+    "",
+    "| Agent | Role | Emoji |",
+    "|-------|------|-------|",
+    ...agents.map((a) => `| ${a.name} | ${a.role} | ${a.emoji ?? "🤖"} |`),
+    "",
+    "## Setup",
+    "",
+    "Each agent has its own workspace under `agents/<id>/` with IDENTITY.md and SOUL.md.",
+    "Edit `openclaw-config.json` to change models or add agents.",
+  ];
+  return lines.join("\n");
+}
+
+function agentsToOpenclawConfig(agents: Agent[]): string {
+  const list = agents.map((a) => ({
+    id: a.id,
+    workspace: `./agents/${a.id}`,
+    model: DEFAULT_MODEL,
+    identity: {
+      name: a.name,
+      theme: a.theme ?? a.role,
+      emoji: a.emoji ?? "🤖",
+    },
+  }));
+  return JSON.stringify({ agents: { list } }, null, 2);
+}
+
+const README_MD = `# OpenClaw Agent Pack
+
+Generated by OpenClaw Pixel Office.
+
+## Quick Start
+
+1. Extract this zip
+2. Edit \`USER.md\` with your profile
+3. Edit \`openclaw-config.json\` if needed (models, endpoints)
+4. Run your OpenClaw runtime with this pack as workspace
+
+## Structure (free-sample layout)
+
+- \`agents/<id>/\` — IDENTITY.md, SOUL.md per agent
+- \`AGENTS.md\` — Team overview
+- \`SOUL.md\` — Pack defaults (shared principles)
+- \`openclaw-config.json\` — Agent list, models, workspaces
+- \`USER.md\`, \`TOOLS.md\`, \`MEMORY.md\`, \`HEARTBEAT.md\` — Templates
+
+## Office Layout (optional)
+
+If this pack includes \`office/\`, it contains:
+- \`layout.toon\` — Office layout with spots
+- \`rpgjs/\` — TMX map + tilesets for RPGJS in-game view
+`;
+
 export function generateZip(config: ZipConfig): Uint8Array {
   const files: Zippable = {};
   const prefix = "openclaw-office/";
 
-  // Agents
+  // Agents — AgentPack format: agents/<id>/IDENTITY.md, agents/<id>/SOUL.md
   for (const agent of config.agents) {
-    const path = `${prefix}agents/${agent.id}.toon`;
-    files[path] = strToU8(toonAgent(agent));
+    const agentPrefix = `${prefix}agents/${agent.id}/`;
+    files[`${agentPrefix}IDENTITY.md`] = strToU8(agentToIdentityMd(agent));
+    files[`${agentPrefix}SOUL.md`] = strToU8(agentToSoulMd(agent));
   }
 
-  // Plan templates
+  // Root — free-sample layout
+  files[`${prefix}AGENTS.md`] = strToU8(agentsToAgentsMd(config.agents));
+  files[`${prefix}openclaw-config.json`] = strToU8(agentsToOpenclawConfig(config.agents));
+  files[`${prefix}README.md`] = strToU8(README_MD);
+  files[`${prefix}SOUL.md`] = strToU8(SOUL_PACK_DEFAULTS);
+  files[`${prefix}USER.md`] = strToU8(USER_MD);
+  files[`${prefix}TOOLS.md`] = strToU8(TOOLS_MD);
+  files[`${prefix}MEMORY.md`] = strToU8(MEMORY_MD);
+  files[`${prefix}HEARTBEAT.md`] = strToU8(HEARTBEAT_MD);
+  files[`${prefix}openclaw-channels.template.json5`] = strToU8(OPENCLAW_CHANNELS_TEMPLATE);
+
+  // Plan templates (optional)
   if (config.planTemplates?.length) {
     for (let i = 0; i < config.planTemplates.length; i++) {
       const t = config.planTemplates[i];
-      const path = `${prefix}plans/templates/template_${i}.toon`;
-      files[path] = strToU8(serialize(t));
+      files[`${prefix}plans/templates/template_${i}.toon`] = strToU8(serialize(t));
     }
   }
 
-  // Office layout (custom map)
+  // Office layout (optional)
   if (config.officeLayout) {
     files[`${prefix}office/layout.toon`] = strToU8(serialize(config.officeLayout));
-    // RPGJS map for office (TMX + tilesets)
     const rpgPrefix = `${prefix}office/rpgjs/`;
     files[`${rpgPrefix}officemap.tmx`] = strToU8(officeLayoutToTMX(config.officeLayout));
     files[`${rpgPrefix}Room_Builder_Office.tsx`] = strToU8(ROOM_TSX);
@@ -248,7 +513,7 @@ export function generateZip(config: ZipConfig): Uint8Array {
     }
   }
 
-  // Runtime config
+  // Runtime config (optional, for pixel-office runtime)
   const configToon = config.runtimeConfig ?? {
     openclaw_url: "http://localhost:3000",
     feature_flags: {},
@@ -258,26 +523,6 @@ export function generateZip(config: ZipConfig): Uint8Array {
     "OPENCLAW_URL=http://localhost:3000\n"
   );
 
-  // INSTALL.md
-  files[`${prefix}INSTALL.md`] = strToU8(INSTALL_MD);
-
   return zipSync(files, { level: 6 });
 }
 
-function toonAgent(a: Agent): string {
-  const payload: Record<string, unknown> = {
-    id: a.id,
-    name: a.name,
-    role: a.role,
-    daily_checklist: a.daily_checklist ?? [],
-    tools_allowed: a.tools_allowed ?? [],
-    tone: a.tone ?? "professional",
-    context_budget_tokens: a.context_budget_tokens ?? 4096,
-    escalation_rules: a.escalation_rules ?? {},
-    deps: a.deps ?? [],
-    spots: a.spots ?? [],
-  };
-  if (a.character) payload.character = a.character;
-  else if (a.sprite) payload.sprite = a.sprite;
-  return serialize(payload);
-}

@@ -8,12 +8,13 @@ The ZIP file has been downloaded. Follow the steps below based on your situation
 
 1. **Find the `.openclaw` folder** on your computer. It may be hidden – enable "show hidden files" in your system settings if needed.
 
-2. **Extract the ZIP file** (double-click it). You will get an `openclaw-office` folder containing:
-   - `agents` – your team members and their configuration
-   - `office` – office layout and map files
-   - `runtime` – config and environment setup
+2. **Extract the ZIP file** (double-click it). You will get an `openclaw-office` folder (AgentPack layout, matches free-sample):
+   - `agents/<id>/` – IDENTITY.md, SOUL.md per agent
+   - `AGENTS.md`, `openclaw-config.json`, `README.md`, `SOUL.md`, `USER.md`, `TOOLS.md`, `MEMORY.md`, `HEARTBEAT.md`
+   - `office/` – office layout and RPGJS map (when configured)
+   - `runtime/` – config and environment setup
 
-3. **Copy all folders** from `openclaw-office` (agents, office, runtime) into the `.openclaw` folder – so `.openclaw` contains these folders directly.
+3. **Copy the entire `openclaw-office` folder** into `.openclaw` – or use it as your OpenClaw workspace root.
 
 4. **Restart OpenClaw** – if it is already open, close and reopen it. If not running yet, start it.
 
@@ -28,9 +29,10 @@ The ZIP file has been downloaded. Follow the steps below based on your situation
 2. **Extract the ZIP to a different folder** (e.g. your desktop), not directly into `.openclaw`.
 
 3. **From the extracted `openclaw-office` folder, copy only:**
-   - `agents` – new agents (will replace old ones)
-   - `office` – new office layout
+   - `agents/` – new agent workspaces (IDENTITY.md, SOUL.md per agent)
+   - `AGENTS.md`, `openclaw-config.json`, `SOUL.md` – team and pack config
+   - `office/` – new office layout (if present)
 
-   Leave `plans` and other data in place – do not overwrite them.
+   Leave `plans`, `MEMORY.md`, `USER.md` and other data in place – do not overwrite them.
 
 4. **Close and reopen OpenClaw.**

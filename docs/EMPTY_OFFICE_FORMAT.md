@@ -2,6 +2,17 @@
 
 Reference formats for office maps. Used by 2D map editors and runtime.
 
+## Version 4 (Room Builder – collisions + spots)
+
+- **version**: 4
+- **files**: base (Room_Builder_Office_16x16.png), assets (Modern_Office_Black_Shadow.png)
+- **world**: bounds (minX, maxX, minY, maxY) – world coords can be negative
+- **layers**: Sparse tiles `{x, y, tileId}` per layer
+- **collision.blocked**: `[{x, y, blocked: 1}, ...]` – non-walkable tiles
+- **spots.items**: `[{x, y, type: "sit"|"work"|"find", label}, ...]`
+
+See `docs/OFFICE_DESIGN_FORMAT.md` for full spec. Use `officeDesignJsonToOfficeLayout()` to convert to web UI format.
+
 ## Version 3 (9 desk spots)
 
 - **version**: 3

@@ -1,6 +1,7 @@
 /**
  * Runtime API server
  * GET /state, GET /events, POST /god/task
+ * Orchestrator runs in background - picks queued tasks, routes to OpenClaw/Nanobot adapters
  */
 
 import express from "express";
@@ -9,12 +10,31 @@ import { mkdirSync, existsSync } from "fs";
 import { join } from "path";
 import { fileURLToPath } from "url";
 import { createDb } from "@openclaw-office/storage";
+import {
+  Orchestrator,
+  registerBuiltinAdapters,
+} from "@openclaw-office/agent-control";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const dataDir = join(__dirname, "../data");
 if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true });
 const dbPath = process.env.DB_PATH ?? join(dataDir, "office.db");
 const db = createDb(dbPath);
+
+registerBuiltinAdapters();
+const orchestrator = new Orchestrator({
+  db: db as import("@openclaw-office/agent-control").DbLike,
+  config: {
+    poll_interval_ms: Number(process.env.ORCHESTRATOR_POLL_MS) || 2000,
+    max_concurrent_per_adapter: Number(process.env.ORCHESTRATOR_CONCURRENT) || 5,
+    adapter_configs: {
+      openclaw: {
+        baseUrl: process.env.OPENCLAW_URL || "http://localhost:3000",
+      },
+    },
+  },
+});
+orchestrator.start();
 
 const app = express();
 app.use(cors());

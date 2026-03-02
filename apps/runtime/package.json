@@ -12,6 +12,7 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@openclaw-office/agent-control": "workspace:*",
     "@openclaw-office/core": "workspace:*",
     "@openclaw-office/storage": "workspace:*",
     "@openclaw-office/adapters": "workspace:*",

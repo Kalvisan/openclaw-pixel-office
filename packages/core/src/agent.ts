@@ -23,6 +23,10 @@ export interface Agent {
   sprite?: string;
   character?: CharacterAppearance; // body, outfit, hair, eyes
   spots: string[]; // desk, chair, meeting
+  /** Emoji for AgentPack identity (e.g. 🤖) */
+  emoji?: string;
+  /** Theme/description for AgentPack identity */
+  theme?: string;
 }
 
 export const AGENT_SCHEMA = {
@@ -41,5 +45,7 @@ export const AGENT_SCHEMA = {
     sprite: { type: "string" as const },
     character: { type: "map" as const },
     spots: { type: "list" as const, items: { type: "string" as const } },
+    emoji: { type: "string" as const },
+    theme: { type: "string" as const },
   },
 };

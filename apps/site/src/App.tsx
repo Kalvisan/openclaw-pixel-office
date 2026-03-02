@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { AgentEditor } from "./AgentEditor";
 import { DownloadZip } from "./DownloadZip";
+import { LayoutEditor } from "./LayoutEditor";
 import type { Agent } from "@openclaw-office/core";
-import { mainOfficeLayout } from "./layoutPresets";
+import { mainOfficeLayout, cloneLayout } from "./layoutPresets";
 import { DEFAULT_CHARACTER } from "./characterAssets";
 
 const BASE_AGENT = {
@@ -17,12 +18,12 @@ const PRESETS = {
   virtual_it_agency: {
     name: "Virtual IT Agency",
     agents: [
-      { ...BASE_AGENT, id: "ceo", name: "James", role: "Chief Executive", character: { ...DEFAULT_CHARACTER, outfit: "outfit_1", hair: "hair_5" }, spots: ["desk", "meeting"], deps: [] },
-      { ...BASE_AGENT, id: "pm", name: "Sarah", role: "Project Manager", character: { ...DEFAULT_CHARACTER, outfit: "outfit_2", hair: "hair_10" }, spots: ["desk", "meeting"], deps: ["ceo"] },
-      { ...BASE_AGENT, id: "dev", name: "Mike", role: "Developer", character: { ...DEFAULT_CHARACTER, outfit: "outfit_3", hair: "hair_15" }, spots: ["desk"], deps: ["pm"], tools_allowed: ["read_file", "write_file", "run_terminal"], tone: "technical", context_budget_tokens: 8192 },
-      { ...BASE_AGENT, id: "qa", name: "Lisa", role: "QA Engineer", character: { ...DEFAULT_CHARACTER, outfit: "outfit_4", hair: "hair_20" }, spots: ["desk"], deps: ["dev"], tools_allowed: ["read_file", "run_terminal"], tone: "analytical" },
-      { ...BASE_AGENT, id: "designer", name: "Emma", role: "UI/UX Designer", character: { ...DEFAULT_CHARACTER, outfit: "outfit_5", hair: "hair_25" }, spots: ["desk"], deps: ["pm"], tools_allowed: ["read_file", "write_file"], tone: "creative" },
-      { ...BASE_AGENT, id: "researcher", name: "Alex", role: "Research", character: { ...DEFAULT_CHARACTER, outfit: "outfit_6", hair: "hair_30" }, spots: ["desk", "chair"], deps: ["pm"], tools_allowed: ["read_file", "web_search"], tone: "curious", context_budget_tokens: 8192 },
+      { ...BASE_AGENT, id: "ceo", name: "James", role: "Chief Executive", emoji: "👔", character: { ...DEFAULT_CHARACTER, outfit: "outfit_1", hair: "hair_5" }, spots: ["desk", "meeting"], deps: [] },
+      { ...BASE_AGENT, id: "pm", name: "Sarah", role: "Project Manager", emoji: "📋", character: { ...DEFAULT_CHARACTER, outfit: "outfit_2", hair: "hair_10" }, spots: ["desk", "meeting"], deps: ["ceo"] },
+      { ...BASE_AGENT, id: "dev", name: "Mike", role: "Developer", emoji: "💻", character: { ...DEFAULT_CHARACTER, outfit: "outfit_3", hair: "hair_15" }, spots: ["desk"], deps: ["pm"], tools_allowed: ["read_file", "write_file", "run_terminal"], tone: "technical", context_budget_tokens: 8192 },
+      { ...BASE_AGENT, id: "qa", name: "Lisa", role: "QA Engineer", emoji: "🔍", character: { ...DEFAULT_CHARACTER, outfit: "outfit_4", hair: "hair_20" }, spots: ["desk"], deps: ["dev"], tools_allowed: ["read_file", "run_terminal"], tone: "analytical" },
+      { ...BASE_AGENT, id: "designer", name: "Emma", role: "UI/UX Designer", emoji: "🎨", character: { ...DEFAULT_CHARACTER, outfit: "outfit_5", hair: "hair_25" }, spots: ["desk"], deps: ["pm"], tools_allowed: ["read_file", "write_file"], tone: "creative" },
+      { ...BASE_AGENT, id: "researcher", name: "Alex", role: "Research", emoji: "🔬", character: { ...DEFAULT_CHARACTER, outfit: "outfit_6", hair: "hair_30" }, spots: ["desk", "chair"], deps: ["pm"], tools_allowed: ["read_file", "web_search"], tone: "curious", context_budget_tokens: 8192 },
     ] as Agent[],
   },
 };
@@ -33,8 +34,7 @@ export default function App() {
     preset ? [...PRESETS[preset].agents] : []
   );
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  // Main layout: 9 desks, chairs, meeting, closet (fixed layout)
-  const officeLayout = useMemo(() => mainOfficeLayout(), []);
+  const [officeLayout, setOfficeLayout] = useState(() => cloneLayout(mainOfficeLayout()));
 
   useEffect(() => {
     if (preset) {
@@ -78,6 +78,9 @@ export default function App() {
             />
           </section>
 
+          <section className="app-section">
+            <LayoutEditor layout={officeLayout} onChange={setOfficeLayout} />
+          </section>
           <section className="app-section">
             <DownloadZip agents={agents} officeLayout={officeLayout} />
           </section>

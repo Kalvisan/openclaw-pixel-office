@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { OfficeLayout } from "@openclaw-office/zipgen";
-import { getLayoutLayers } from "@openclaw-office/zipgen";
+import { getLayoutLayers, officeDesignJsonToOfficeLayout, officeLayoutToOfficeDesignJson } from "@openclaw-office/zipgen";
 import {
   OBJECTS_BY_CATEGORY,
   getSpriteXY,
@@ -33,22 +33,22 @@ const TOOLBAR_TILE_PX = 36;
 const EMPTY_TILE = "";
 
 /** Room mask: 1 = floor/inside, 0 = wall/outside */
-function createDefaultRoomMask(): number[][] {
-  return Array(GRID_HEIGHT)
+function createDefaultRoomMask(w = GRID_WIDTH, h = GRID_HEIGHT): number[][] {
+  return Array(h)
     .fill(null)
     .map((_, y) =>
-      Array(GRID_WIDTH)
+      Array(w)
         .fill(0)
         .map((_, x) =>
-          y > 0 && y < GRID_HEIGHT - 1 && x > 0 && x < GRID_WIDTH - 1 ? 1 : 0
+          y > 0 && y < h - 1 && x > 0 && x < w - 1 ? 1 : 0
         )
     );
 }
 
-function createEmptyObjectLayer(): string[][] {
-  return Array(GRID_HEIGHT)
+function createEmptyObjectLayer(w = GRID_WIDTH, h = GRID_HEIGHT): string[][] {
+  return Array(h)
     .fill(null)
-    .map(() => Array(GRID_WIDTH).fill(EMPTY_TILE));
+    .map(() => Array(w).fill(EMPTY_TILE));
 }
 
 function cloneRoomMask(mask: number[][]): number[][] {
@@ -64,6 +64,7 @@ const EMPTY_SPOTS: NonNullable<OfficeLayout["spots"]> = {
   desk: [],
   chair: [],
   meeting: [],
+  closet: [],
 };
 
 interface Props {
@@ -98,6 +99,9 @@ export function LayoutEditor({ layout, onChange }: Props) {
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>("empty");
   const [sheetImages, setSheetImages] = useState<Record<string, HTMLImageElement>>({});
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
+  const canvasWrapRef = useRef<HTMLDivElement>(null);
+  const [zoom, setZoom] = useState(1);
 
   const roomMask = useMemo(() => {
     if (layout?.roomMask) return layout.roomMask;
@@ -107,12 +111,15 @@ export function LayoutEditor({ layout, onChange }: Props) {
     return createDefaultRoomMask();
   }, [layout?.roomMask, layout?.layers]);
 
+  const effectiveWidth = layout?.width ?? roomMask[0]?.length ?? GRID_WIDTH;
+  const effectiveHeight = layout?.height ?? roomMask?.length ?? GRID_HEIGHT;
+
   const floorMaterialFromLayout = layout?.floorMaterial ?? "grayTile";
 
   const objectLayers = useMemo(() => {
-    const layers = layout?.layers ?? [createEmptyObjectLayer()];
+    const layers = layout?.layers ?? [createEmptyObjectLayer(effectiveWidth, effectiveHeight)];
     return layers.slice(1);
-  }, [layout?.layers]);
+  }, [layout?.layers, effectiveWidth, effectiveHeight]);
 
   const isFloorLayer = activeLayerIndex === 0;
 
@@ -122,6 +129,7 @@ export function LayoutEditor({ layout, onChange }: Props) {
       desk: s.desk ?? [],
       chair: s.chair ?? [],
       meeting: s.meeting ?? [],
+      closet: s.closet ?? [],
     };
   }, [layout?.spots]);
 
@@ -152,26 +160,26 @@ export function LayoutEditor({ layout, onChange }: Props) {
           floorMaterial,
           isWall: (v) => v === 0,
         }),
-        GRID_WIDTH,
-        GRID_HEIGHT
+        effectiveWidth,
+        effectiveHeight
       );
       onChange({
-        width: GRID_WIDTH,
-        height: GRID_HEIGHT,
+        width: effectiveWidth,
+        height: effectiveHeight,
         roomMask: nextMask,
         floorMaterial,
         layers: [floor, ...objectLayers],
         spots,
       });
     },
-    [roomMask, floorMaterial, objectLayers, spots, onChange]
+    [roomMask, floorMaterial, objectLayers, spots, onChange, effectiveWidth, effectiveHeight]
   );
 
   const setObjectTile = useCallback(
     (gx: number, gy: number, objectId: string | null) => {
       setSelectedPresetId(null);
       const layerIndex = activeLayerIndex - 1;
-      const nextLayers = cloneLayers([createEmptyObjectLayer(), ...objectLayers]);
+      const nextLayers = cloneLayers([createEmptyObjectLayer(effectiveWidth, effectiveHeight), ...objectLayers]);
       const layer = nextLayers[layerIndex + 1];
       if (!layer) return;
       if (!objectId) {
@@ -182,7 +190,7 @@ export function LayoutEditor({ layout, onChange }: Props) {
         for (const cell of cells) {
           const x = gx + cell.dx;
           const y = gy + cell.dy;
-          if (x >= 0 && x < GRID_WIDTH && y >= 0 && y < GRID_HEIGHT) {
+          if (x >= 0 && x < effectiveWidth && y >= 0 && y < effectiveHeight) {
             layer[y][x] = cell.tileId;
           }
         }
@@ -192,19 +200,19 @@ export function LayoutEditor({ layout, onChange }: Props) {
           floorMaterial,
           isWall: (v) => v === 0,
         }),
-        GRID_WIDTH,
-        GRID_HEIGHT
+        effectiveWidth,
+        effectiveHeight
       );
       onChange({
-        width: GRID_WIDTH,
-        height: GRID_HEIGHT,
+        width: effectiveWidth,
+        height: effectiveHeight,
         roomMask,
         floorMaterial,
         layers: [floor, ...nextLayers.slice(1)],
         spots,
       });
     },
-    [roomMask, floorMaterial, objectLayers, activeLayerIndex, spots, onChange]
+    [roomMask, floorMaterial, objectLayers, activeLayerIndex, spots, onChange, effectiveWidth, effectiveHeight]
   );
 
   const setSpot = useCallback(
@@ -213,29 +221,52 @@ export function LayoutEditor({ layout, onChange }: Props) {
         desk: spots.desk.filter((p) => !(p.x === gx && p.y === gy)),
         chair: spots.chair.filter((p) => !(p.x === gx && p.y === gy)),
         meeting: spots.meeting.filter((p) => !(p.x === gx && p.y === gy)),
+        closet: spots.closet.filter((p) => !(p.x === gx && p.y === gy)),
       };
-      if (spotType === "desk" || spotType === "chair" || spotType === "meeting") {
-        next[spotType] = [...next[spotType], { x: gx, y: gy }];
-      }
+      if (spotType === "desk") next.desk.push({ x: gx, y: gy });
+      else if (spotType === "chair") next.chair.push({ x: gx, y: gy });
+      else if (spotType === "meeting") next.meeting.push({ x: gx, y: gy });
+      else if (spotType === "closet") next.closet.push({ x: gx, y: gy });
       const floor = layoutToFloorGrid(
         buildRoomLayout(roomMask, {
           floorMaterial,
           isWall: (v) => v === 0,
         }),
-        GRID_WIDTH,
-        GRID_HEIGHT
+        effectiveWidth,
+        effectiveHeight
       );
       onChange({
-        width: GRID_WIDTH,
-        height: GRID_HEIGHT,
+        width: effectiveWidth,
+        height: effectiveHeight,
         roomMask,
         floorMaterial,
         layers: [floor, ...objectLayers],
         spots: next,
       });
     },
-    [roomMask, floorMaterial, objectLayers, spots, onChange]
+    [roomMask, floorMaterial, objectLayers, spots, onChange, effectiveWidth, effectiveHeight]
   );
+
+  const canvasPixelW = effectiveWidth * TILE_SIZE * DISPLAY_SCALE;
+  const canvasPixelH = effectiveHeight * TILE_SIZE * DISPLAY_SCALE;
+
+  const fitToScreen = useCallback(() => {
+    const wrap = canvasWrapRef.current;
+    if (!wrap) return;
+    const r = wrap.getBoundingClientRect();
+    if (r.width < 50 || r.height < 50) return;
+    const scale = Math.min(
+      (r.width - 24) / canvasPixelW,
+      (r.height - 24) / canvasPixelH,
+      2
+    );
+    setZoom(Math.max(0.25, Math.min(2, scale)));
+  }, [canvasPixelW, canvasPixelH]);
+
+  useEffect(() => {
+    const t = setTimeout(fitToScreen, 100);
+    return () => clearTimeout(t);
+  }, [effectiveWidth, effectiveHeight, fitToScreen]);
 
   const getCellFromEvent = useCallback((e: React.PointerEvent) => {
     const canvas = canvasRef.current;
@@ -246,10 +277,10 @@ export function LayoutEditor({ layout, onChange }: Props) {
     const canvasY = ((e.clientY - rect.top) / rect.height) * canvas.height;
     const gx = Math.floor(canvasX / tileDisplayPx);
     const gy = Math.floor(canvasY / tileDisplayPx);
-    if (gx >= 0 && gx < GRID_WIDTH && gy >= 0 && gy < GRID_HEIGHT)
+    if (gx >= 0 && gx < effectiveWidth && gy >= 0 && gy < effectiveHeight)
       return { gx, gy };
     return null;
-  }, []);
+  }, [effectiveWidth, effectiveHeight]);
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
@@ -340,20 +371,20 @@ export function LayoutEditor({ layout, onChange }: Props) {
         floorMaterial,
         isWall: (v) => v === 0,
       }),
-      GRID_WIDTH,
-      GRID_HEIGHT
+      effectiveWidth,
+      effectiveHeight
     );
-    const nextLayers = [...objectLayers, createEmptyObjectLayer()];
+    const nextLayers = [...objectLayers, createEmptyObjectLayer(effectiveWidth, effectiveHeight)];
     setActiveLayerIndex(nextLayers.length);
     onChange({
-      width: GRID_WIDTH,
-      height: GRID_HEIGHT,
+      width: effectiveWidth,
+      height: effectiveHeight,
       roomMask,
       floorMaterial,
       layers: [floor, ...nextLayers],
       spots,
     });
-  }, [roomMask, floorMaterial, objectLayers, spots, onChange]);
+  }, [roomMask, floorMaterial, objectLayers, spots, onChange, effectiveWidth, effectiveHeight]);
 
   const removeObjectLayer = useCallback(() => {
     if (activeLayerIndex < 1 || objectLayers.length <= 1) return;
@@ -362,20 +393,20 @@ export function LayoutEditor({ layout, onChange }: Props) {
         floorMaterial,
         isWall: (v) => v === 0,
       }),
-      GRID_WIDTH,
-      GRID_HEIGHT
+      effectiveWidth,
+      effectiveHeight
     );
     const nextLayers = objectLayers.filter((_, i) => i !== activeLayerIndex - 1);
     setActiveLayerIndex(Math.min(activeLayerIndex, nextLayers.length));
     onChange({
-      width: GRID_WIDTH,
-      height: GRID_HEIGHT,
+      width: effectiveWidth,
+      height: effectiveHeight,
       roomMask,
       floorMaterial,
       layers: [floor, ...nextLayers],
       spots,
     });
-  }, [roomMask, floorMaterial, objectLayers, activeLayerIndex, spots, onChange]);
+  }, [roomMask, floorMaterial, objectLayers, activeLayerIndex, spots, onChange, effectiveWidth, effectiveHeight]);
 
   const changeFloorMaterial = useCallback(
     (mat: FloorMaterialName) => {
@@ -385,19 +416,19 @@ export function LayoutEditor({ layout, onChange }: Props) {
           floorMaterial: mat,
           isWall: (v) => v === 0,
         }),
-        GRID_WIDTH,
-        GRID_HEIGHT
+        effectiveWidth,
+        effectiveHeight
       );
       onChange({
-        width: GRID_WIDTH,
-        height: GRID_HEIGHT,
+        width: effectiveWidth,
+        height: effectiveHeight,
         roomMask,
         floorMaterial: mat,
         layers: [floor, ...objectLayers],
         spots,
       });
     },
-    [roomMask, objectLayers, spots, onChange]
+    [roomMask, objectLayers, spots, onChange, effectiveWidth, effectiveHeight]
   );
 
   const roomLayout = useMemo(
@@ -449,8 +480,8 @@ export function LayoutEditor({ layout, onChange }: Props) {
     ctx.imageSmoothingEnabled = false;
     ctx.imageSmoothingQuality = "low";
 
-    const bufferW = GRID_WIDTH * TILE_SIZE * DISPLAY_SCALE;
-    const bufferH = GRID_HEIGHT * TILE_SIZE * DISPLAY_SCALE;
+    const bufferW = effectiveWidth * TILE_SIZE * DISPLAY_SCALE;
+    const bufferH = effectiveHeight * TILE_SIZE * DISPLAY_SCALE;
 
     canvas.width = bufferW;
     canvas.height = bufferH;
@@ -462,13 +493,35 @@ export function LayoutEditor({ layout, onChange }: Props) {
 
     ctx.save();
     ctx.scale(DISPLAY_SCALE, DISPLAY_SCALE);
-    drawLayout(ctx, sheetImages.room ?? null, roomLayout, 0, 0);
+    const floorLayer = layout?.layers?.[0];
+    const hasRbTiles = floorLayer?.some((row) => row?.some((c) => c?.startsWith("rb_")));
+    if (hasRbTiles && floorLayer && sheetImages.room) {
+      for (let gy = 0; gy < effectiveHeight; gy++) {
+        for (let gx = 0; gx < effectiveWidth; gx++) {
+          const tileId = floorLayer[gy]?.[gx];
+          if (!tileId?.startsWith("rb_")) continue;
+          const m = tileId.match(/^rb_(\d+)_(\d+)$/);
+          if (!m) continue;
+          const row = parseInt(m[1], 10);
+          const col = parseInt(m[2], 10);
+          const sx = col * TILE_SIZE;
+          const sy = row * TILE_SIZE;
+          ctx.drawImage(
+            sheetImages.room,
+            sx, sy, TILE_SIZE, TILE_SIZE,
+            gx * TILE_SIZE, gy * TILE_SIZE, TILE_SIZE, TILE_SIZE
+          );
+        }
+      }
+    } else {
+      drawLayout(ctx, sheetImages.room ?? null, roomLayout, 0, 0);
+    }
     ctx.restore();
 
     for (let li = 0; li < objectLayers.length; li++) {
       const layer = objectLayers[li];
-      for (let gy = 0; gy < GRID_HEIGHT; gy++) {
-        for (let gx = 0; gx < GRID_WIDTH; gx++) {
+      for (let gy = 0; gy < effectiveHeight; gy++) {
+        for (let gx = 0; gx < effectiveWidth; gx++) {
           const tileId = layer[gy]?.[gx];
           if (!tileId || tileId === EMPTY_TILE) continue;
           const dx = Math.floor(gx * baseSize);
@@ -482,6 +535,7 @@ export function LayoutEditor({ layout, onChange }: Props) {
       desk: "rgba(100, 180, 255, 0.4)",
       chair: "rgba(100, 255, 150, 0.4)",
       meeting: "rgba(255, 200, 100, 0.4)",
+      closet: "rgba(180, 100, 255, 0.4)",
     };
     for (const [spotType, positions] of Object.entries(spots) as [
       keyof typeof spots,
@@ -495,7 +549,7 @@ export function LayoutEditor({ layout, onChange }: Props) {
         ctx.fillRect(dx, dy, destSize, destSize);
       }
     }
-  }, [roomLayout, objectLayers, spots, sheetImages, drawTile]);
+  }, [layout?.layers, roomLayout, objectLayers, spots, sheetImages, drawTile, effectiveWidth, effectiveHeight]);
 
   const categoryLabels: Record<Category, string> = {
     decor: "Decors",
@@ -622,7 +676,7 @@ export function LayoutEditor({ layout, onChange }: Props) {
           <span style={{ fontSize: 11, color: "var(--game-muted)" }}>
             Spot type:
           </span>
-          {(["desk", "chair", "meeting"] as const).map((t) => (
+          {(["desk", "chair", "meeting", "closet"] as const).map((t) => (
             <button
               key={t}
               type="button"
@@ -638,7 +692,7 @@ export function LayoutEditor({ layout, onChange }: Props) {
                 setSelectedSpotType(selectedSpotType === t ? null : t)
               }
             >
-              {t === "desk" ? "Desk" : t === "chair" ? "Chair" : "Meeting"}
+              {t === "desk" ? "Desk" : t === "chair" ? "Chair" : t === "meeting" ? "Meeting" : "Closet"}
             </button>
           ))}
           <button
@@ -652,7 +706,7 @@ export function LayoutEditor({ layout, onChange }: Props) {
         </div>
       )}
 
-      <div className="layout-preset-section" style={{ marginBottom: 16 }}>
+      <div className="layout-preset-section" style={{ marginBottom: 16, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
         <label htmlFor="layout-preset-select" className="layout-preset-label">
           Layout preset:
         </label>
@@ -660,9 +714,25 @@ export function LayoutEditor({ layout, onChange }: Props) {
           id="layout-preset-select"
           className="layout-preset-select"
           value={selectedPresetId ?? "custom"}
-          onChange={(e) => {
+          onChange={async (e) => {
             const id = e.target.value;
             if (id === "custom") return;
+            if (id === "modern_office") {
+              setSelectedPresetId("modern_office");
+              try {
+                const res = await fetch("/office-layout-converted.json");
+                const data = await res.json();
+                const layout =
+                  data.version != null && data.world?.bounds
+                    ? officeDesignJsonToOfficeLayout(data)
+                    : data;
+                onChange(layout);
+              } catch (err) {
+                console.error("Failed to load Modern Office preset:", err);
+                alert("Could not load Modern Office preset.");
+              }
+              return;
+            }
             const preset = LAYOUT_PRESETS[id];
             if (preset) {
               setSelectedPresetId(id);
@@ -685,6 +755,7 @@ export function LayoutEditor({ layout, onChange }: Props) {
               {name}
             </option>
           ))}
+          <option value="modern_office">Modern Office (Office_Design_1)</option>
           <option value="custom">(custom – edited)</option>
         </select>
         <button
@@ -693,6 +764,57 @@ export function LayoutEditor({ layout, onChange }: Props) {
           onClick={resetLayout}
         >
           Reset
+        </button>
+        <input
+          ref={importInputRef}
+          type="file"
+          accept=".json"
+          style={{ display: "none" }}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+              try {
+                const json = JSON.parse(reader.result as string);
+                const converted = officeDesignJsonToOfficeLayout(json);
+                setSelectedPresetId(null);
+                onChange(converted);
+              } catch (err) {
+                console.error("Failed to import Office Design JSON:", err);
+                alert("Invalid JSON format. Expected Office Design JSON (Room Builder v4).");
+              }
+            };
+            reader.readAsText(file);
+            e.target.value = "";
+          }}
+        />
+        <button
+          type="button"
+          className="game-btn-secondary"
+          style={{ padding: "4px 10px", fontSize: 11 }}
+          onClick={() => importInputRef.current?.click()}
+        >
+          Import
+        </button>
+        <button
+          type="button"
+          className="game-btn-secondary"
+          style={{ padding: "4px 10px", fontSize: 11 }}
+          onClick={() => {
+            if (!layout) return;
+            const json = officeLayoutToOfficeDesignJson(layout);
+            const blob = new Blob([JSON.stringify(json, null, 2)], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "office-design.json";
+            a.click();
+            URL.revokeObjectURL(url);
+          }}
+          disabled={!layout}
+        >
+          Export (Office Design format)
         </button>
       </div>
 
@@ -847,18 +969,58 @@ export function LayoutEditor({ layout, onChange }: Props) {
           )}
         </div>
 
-        <div className="layout-canvas-wrap">
-          <canvas
-            ref={canvasRef}
-            className="layout-canvas-2d"
-            width={GRID_WIDTH * TILE_SIZE * DISPLAY_SCALE}
-            height={GRID_HEIGHT * TILE_SIZE * DISPLAY_SCALE}
-            onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerUp}
-            onPointerLeave={handlePointerUp}
-            style={{ cursor: "crosshair" }}
-          />
+        <div className="layout-canvas-wrap" ref={canvasWrapRef}>
+          <div className="layout-canvas-zoom-bar">
+            <button type="button" className="game-btn-secondary" onClick={fitToScreen} title="Fit to screen">
+              Fit
+            </button>
+            <button
+              type="button"
+              className="game-btn-secondary"
+              onClick={() => setZoom(1)}
+              title="100%"
+            >
+              100%
+            </button>
+            <button
+              type="button"
+              className="game-btn-secondary"
+              onClick={() => setZoom((z) => Math.min(2, z * 1.25))}
+              title="Zoom in"
+            >
+              +
+            </button>
+            <button
+              type="button"
+              className="game-btn-secondary"
+              onClick={() => setZoom((z) => Math.max(0.25, z / 1.25))}
+              title="Zoom out"
+            >
+              −
+            </button>
+            <span className="layout-zoom-label">{Math.round(zoom * 100)}%</span>
+          </div>
+          <div
+            className="layout-canvas-scroll"
+            style={{
+              width: canvasPixelW * zoom,
+              height: canvasPixelH * zoom,
+              minWidth: canvasPixelW * 0.25,
+              minHeight: canvasPixelH * 0.25,
+            }}
+          >
+            <canvas
+              ref={canvasRef}
+              className="layout-canvas-2d"
+              width={canvasPixelW}
+              height={canvasPixelH}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onPointerLeave={handlePointerUp}
+              style={{ cursor: "crosshair" }}
+            />
+          </div>
         </div>
       </div>
     </div>
