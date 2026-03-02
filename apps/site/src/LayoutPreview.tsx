@@ -33,6 +33,18 @@ export function LayoutPreview({ layout }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [sheetImages, setSheetImages] = useState<Record<string, HTMLImageElement>>({});
+  const [containerSize, setContainerSize] = useState<{ w: number; h: number } | null>(null);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const { width, height } = entries[0]?.contentRect ?? {};
+      if (width > 0 && height > 0) setContainerSize({ w: width, h: height });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const roomMask = useMemo(() => {
     if (layout?.roomMask) return layout.roomMask;
@@ -90,8 +102,7 @@ export function LayoutPreview({ layout }: Props) {
     ctx.imageSmoothingEnabled = false;
     ctx.imageSmoothingQuality = "low";
 
-    const baseSize = TILE_SIZE * 2;
-    const destSize = baseSize;
+    const DISPLAY_SCALE = 2;
 
     const roomRows = getSheetRows("room");
     const roomCols = getSheetCols("room");
@@ -120,22 +131,32 @@ export function LayoutPreview({ layout }: Props) {
         TILE_SIZE,
         dx,
         dy,
-        destSize,
-        destSize
+        TILE_SIZE,
+        TILE_SIZE
       );
     };
 
-    const bufferW = effectiveWidth * TILE_SIZE * 2;
-    const bufferH = effectiveHeight * TILE_SIZE * 2;
+    const contentW = effectiveWidth * TILE_SIZE * DISPLAY_SCALE;
+    const contentH = effectiveHeight * TILE_SIZE * DISPLAY_SCALE;
 
-    canvas.width = bufferW;
-    canvas.height = bufferH;
+    const canvasW = containerSize ? Math.max(1, Math.floor(containerSize.w)) : contentW;
+    const canvasH = containerSize ? Math.max(1, Math.floor(containerSize.h)) : contentH;
+    const scale = Math.min(canvasW / contentW, canvasH / contentH);
+    const drawW = contentW * scale;
+    const drawH = contentH * scale;
+    const padX = (canvasW - drawW) / 2;
+    const padY = (canvasH - drawH) / 2;
+
+    canvas.width = canvasW;
+    canvas.height = canvasH;
 
     ctx.fillStyle = "#0a0a0f";
-    ctx.fillRect(0, 0, bufferW, bufferH);
+    ctx.fillRect(0, 0, canvasW, canvasH);
 
     ctx.save();
-    ctx.scale(2, 2);
+    ctx.translate(padX, padY);
+    ctx.scale(scale, scale);
+    ctx.scale(DISPLAY_SCALE, DISPLAY_SCALE);
     const floorLayer = layout?.layers?.[0];
     const hasRbTiles = floorLayer?.some((row: string[]) =>
       row?.some((c: string) => c?.startsWith("rb_"))
@@ -169,18 +190,23 @@ export function LayoutPreview({ layout }: Props) {
     }
     ctx.restore();
 
+    ctx.save();
+    ctx.translate(padX, padY);
+    ctx.scale(scale, scale);
+    ctx.scale(DISPLAY_SCALE, DISPLAY_SCALE);
     for (let li = 0; li < objectLayers.length; li++) {
       const layer = objectLayers[li];
       for (let gy = 0; gy < effectiveHeight; gy++) {
         for (let gx = 0; gx < effectiveWidth; gx++) {
           const tileId = layer[gy]?.[gx];
           if (!tileId || tileId === EMPTY_TILE) continue;
-          const dx = Math.floor(gx * baseSize);
-          const dy = Math.floor(gy * baseSize);
+          const dx = gx * TILE_SIZE;
+          const dy = gy * TILE_SIZE;
           drawTile(ctx, tileId, dx, dy);
         }
       }
     }
+    ctx.restore();
 
     const spotColors: Record<string, string> = {
       desk: "rgba(100, 180, 255, 0.4)",
@@ -188,18 +214,23 @@ export function LayoutPreview({ layout }: Props) {
       meeting: "rgba(255, 200, 100, 0.4)",
       closet: "rgba(180, 100, 255, 0.4)",
     };
+    ctx.save();
+    ctx.translate(padX, padY);
+    ctx.scale(scale, scale);
+    ctx.scale(DISPLAY_SCALE, DISPLAY_SCALE);
     for (const [spotType, positions] of Object.entries(spots) as [
       string,
       { x: number; y: number }[],
     ][]) {
       const color = spotColors[spotType];
       for (const { x, y } of positions) {
-        const dx = Math.floor(x * baseSize);
-        const dy = Math.floor(y * baseSize);
+        const dx = Math.floor(x) * TILE_SIZE;
+        const dy = Math.floor(y) * TILE_SIZE;
         ctx.fillStyle = color;
-        ctx.fillRect(dx, dy, destSize, destSize);
+        ctx.fillRect(dx, dy, TILE_SIZE, TILE_SIZE);
       }
     }
+    ctx.restore();
   }, [
     layout,
     roomLayout,
@@ -208,6 +239,7 @@ export function LayoutPreview({ layout }: Props) {
     sheetImages,
     effectiveWidth,
     effectiveHeight,
+    containerSize,
   ]);
 
   if (!layout) {
@@ -256,7 +288,7 @@ export function LayoutPreview({ layout }: Props) {
         <canvas
           ref={canvasRef}
           className="layout-preview-canvas"
-          style={{ width: "100%", height: "auto", display: "block" }}
+          style={{ display: "block" }}
         />
       </div>
     </div>

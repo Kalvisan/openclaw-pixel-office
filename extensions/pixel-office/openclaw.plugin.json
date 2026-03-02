@@ -1,0 +1,18 @@
+{
+  "id": "pixel-office",
+  "name": "Pixel Office",
+  "version": "0.1.0",
+  "description": "Visual agent team builder + orchestration + live 2D office. Define agents, design office layout, watch them work in real time.",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "orchestratorEnabled": { "type": "boolean", "default": true },
+      "webUIPort": { "type": "number", "default": 5175 }
+    }
+  },
+  "uiHints": {
+    "orchestratorEnabled": { "label": "Enable orchestrator", "description": "Run task queue and route to OpenClaw adapters" },
+    "webUIPort": { "label": "Web UI port", "placeholder": "5175" }
+  }
+}

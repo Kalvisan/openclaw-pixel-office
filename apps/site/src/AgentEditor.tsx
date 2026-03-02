@@ -1,7 +1,6 @@
 import type { Agent } from "@openclaw-office/core";
 import { CharacterAvatar } from "./CharacterAvatar";
 import { CharacterEditor } from "./CharacterEditor";
-import { PresetSelector } from "./PresetSelector";
 import { IconTeam, IconLink, IconPlus } from "./Icons";
 import { DEFAULT_CHARACTER } from "./characterAssets";
 
@@ -19,6 +18,8 @@ interface Props {
   presetSelected?: string | null;
   onPresetSelect?: (id: string) => void;
 }
+
+const CUSTOM_PRESET_ID = "__custom__";
 
 export function AgentEditor({ agents, selectedId, onSelect, onChange, presetPresets, presetSelected, onPresetSelect }: Props) {
   const update = (idx: number, patch: Partial<Agent>) => {
@@ -62,12 +63,32 @@ export function AgentEditor({ agents, selectedId, onSelect, onChange, presetPres
     onSelect(id);
   };
 
+  const handlePresetChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    onPresetSelect?.(value === CUSTOM_PRESET_ID ? CUSTOM_PRESET_ID : value);
+  };
+
   return (
     <div className="editor-layout">
       <div className="game-panel editor-panel" style={{ padding: 20 }}>
-        <h2 className="game-font-title section-title" style={{ fontSize: 10, marginBottom: 8, color: "var(--game-gold)", display: "flex", alignItems: "center", gap: 6 }}>
-          <IconTeam size={14} /> Team
-        </h2>
+        <div className="team-header-row">
+          <h2 className="game-font-title section-title" style={{ fontSize: 10, marginBottom: 0, color: "var(--game-gold)", display: "flex", alignItems: "center", gap: 6 }}>
+            <IconTeam size={14} /> Team
+          </h2>
+          {presetPresets && presetPresets.length > 0 && onPresetSelect && (
+            <select
+              className="preset-select"
+              value={presetSelected ?? CUSTOM_PRESET_ID}
+              onChange={handlePresetChange}
+              aria-label="Team preset"
+            >
+              {presetPresets.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+              <option value={CUSTOM_PRESET_ID}>Create your own</option>
+            </select>
+          )}
+        </div>
         <p className="section-hint">Tap an agent to edit</p>
         <div className="team-grid">
           {agents.map((a) => {
@@ -103,15 +124,6 @@ export function AgentEditor({ agents, selectedId, onSelect, onChange, presetPres
             <span style={{ fontSize: "0.9rem", color: "var(--game-text-dim)" }}>Add member</span>
           </button>
         </div>
-        {presetPresets && presetPresets.length > 0 && onPresetSelect && (
-          <div className="preset-inline">
-            <PresetSelector
-              presets={presetPresets}
-              selected={presetSelected ?? null}
-              onSelect={onPresetSelect}
-            />
-          </div>
-        )}
       </div>
 
       {selected && selectedIdx >= 0 && (

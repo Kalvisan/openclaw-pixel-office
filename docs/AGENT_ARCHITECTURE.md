@@ -12,23 +12,23 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    OpenClaw Instance                         │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │              Orchestrator (agent-control)             │   │
-│  │  • Picks queued tasks from SQLite                     │   │
-│  │  • Routes to adapter by agent_id → adapter_type       │   │
-│  │  • Polls status, updates DB                           │   │
-│  │  • processData() for memory/handoffs                  │   │
-│  └──────────────────────┬──────────────────────────────┘   │
-│                         │                                    │
+│                    OpenClaw Instance                        │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │              Orchestrator (agent-control)           │    │
+│  │  • Picks queued tasks from SQLite                   │    │
+│  │  • Routes to adapter by agent_id → adapter_type     │    │
+│  │  • Polls status, updates DB                         │    │
+│  │  • processData() for memory/handoffs                │    │
+│  └──────────────────────┬──────────────────────────────┘    │
+│                         │                                   │
 │         ┌───────────────┼───────────────┐                   │
-│         ▼               ▼               ▼                    │
+│         ▼               ▼               ▼                   │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐            │
 │  │ OpenClaw    │ │ Nanobot     │ │ Custom      │            │
-│  │ Adapter     │ │ Adapter      │ │ Adapter     │            │
+│  │ Adapter     │ │ Adapter     │ │ Adapter     │            │
 │  └──────┬──────┘ └──────┬──────┘ └──────┬──────┘            │
-│         │               │               │                    │
-└─────────┼───────────────┼───────────────┼─────────────────────┘
+│         │               │               │                   │
+└─────────┼───────────────┼───────────────┼───────────────────┘
           │               │               │
           ▼               ▼               ▼
     OpenClaw API    Nanobot API    Custom backend

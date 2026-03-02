@@ -17,6 +17,18 @@ const BASE_AGENT = {
   escalation_rules: {} as Record<string, unknown>,
 };
 
+/** Default CEO when user creates their own team */
+const DEFAULT_CEO: Agent = {
+  ...BASE_AGENT,
+  id: "ceo",
+  name: "You",
+  role: "Chief Executive",
+  emoji: "👔",
+  character: { ...DEFAULT_CHARACTER, outfit: "outfit_1", hair: "hair_5" },
+  spots: ["desk", "meeting"],
+  deps: [],
+};
+
 const PRESETS = {
   virtual_it_agency: {
     name: "Virtual IT Agency",
@@ -62,7 +74,11 @@ export default function App() {
   }, [preset]);
 
   const applyPreset = (key: string) => {
-    if (key in PRESETS) {
+    if (key === "__custom__") {
+      setPreset(null);
+      setAgents([DEFAULT_CEO]);
+      setSelectedId("ceo");
+    } else if (key in PRESETS) {
       const k = key as keyof typeof PRESETS;
       setPreset(k);
       setAgents([...PRESETS[k].agents]);
@@ -82,12 +98,12 @@ export default function App() {
         </p>
       </header>
 
-      {preset && (
+      {(preset || agents.length > 0) && (
         <>
           <section className="app-section">
             <AgentEditor
               presetPresets={Object.entries(PRESETS).map(([k, v]) => ({ id: k, name: v.name }))}
-              presetSelected={preset}
+              presetSelected={preset ?? "__custom__"}
               onPresetSelect={applyPreset}
               agents={agents}
               selectedId={selectedId}
