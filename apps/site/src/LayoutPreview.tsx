@@ -5,7 +5,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { OfficeLayout } from "@openclaw-office/zipgen";
-import { getSpriteXY, TILES_BY_ID, SHEETS } from "./interiorTiles";
+import { getSpriteXY, SHEETS } from "./interiorTiles";
+import { getSheetCols, getSheetRows } from "./tileSheets";
 import {
   buildRoomLayout,
   drawLayout,
@@ -92,17 +93,25 @@ export function LayoutPreview({ layout }: Props) {
     const baseSize = TILE_SIZE * 2;
     const destSize = baseSize;
 
+    const roomRows = getSheetRows("room");
+    const roomCols = getSheetCols("room");
+    const interiorRows = getSheetRows("interior");
+    const interiorCols = getSheetCols("interior");
     const drawTile = (
       ctx: CanvasRenderingContext2D,
       tileId: string,
       dx: number,
       dy: number
     ) => {
-      const def = TILES_BY_ID.get(tileId);
-      if (!def || !def.sheet) return;
-      const img = sheetImages[def.sheet];
+      if (!tileId.startsWith("in_")) return;
+      const m = tileId.match(/^in_(\d+)_(\d+)$/);
+      if (!m) return;
+      const row = parseInt(m[1], 10);
+      const col = parseInt(m[2], 10);
+      if (row >= interiorRows || col >= interiorCols) return;
+      const img = sheetImages.interior;
       if (!img) return;
-      const { x: sx, y: sy } = getSpriteXY(def.col, def.row, def.sheet);
+      const { x: sx, y: sy } = getSpriteXY(col, row, "interior");
       ctx.drawImage(
         img,
         sx,
@@ -140,8 +149,8 @@ export function LayoutPreview({ layout }: Props) {
           if (!m) continue;
           const row = parseInt(m[1], 10);
           const col = parseInt(m[2], 10);
-          const sx = col * TILE_SIZE;
-          const sy = row * TILE_SIZE;
+          if (row >= roomRows || col >= roomCols) continue;
+          const { x: sx, y: sy } = getSpriteXY(col, row, "room");
           ctx.drawImage(
             sheetImages.room,
             sx,
