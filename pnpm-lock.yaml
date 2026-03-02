@@ -169,9 +169,6 @@ importers:
         specifier: workspace:*
         version: link:../storage
     devDependencies:
-      '@types/node':
-        specifier: ^20.10.0
-        version: 20.19.35
       typescript:
         specifier: ^5.3.3
         version: 5.3.3
