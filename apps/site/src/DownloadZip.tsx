@@ -4,10 +4,9 @@ import { generateZip } from "@openclaw-office/zipgen";
 import type { Agent } from "@openclaw-office/core";
 import type { OfficeLayout } from "@openclaw-office/zipgen";
 import { IconDownload, IconCheck, IconClose } from "./Icons";
-import { ASSETS } from "./assets";
+import { ASSETS, ZIP_INSTALL_GUIDE_URL } from "./assets";
 import { normalizeLayoutForExport } from "./layoutPresets";
 
-const GUIDE_URL = "/zip-install-guide.md";
 
 interface Props {
   agents: Agent[];
@@ -31,7 +30,7 @@ export function DownloadZip({ agents, officeLayout }: Props) {
   useEffect(() => {
     if (!showModal) return;
     setGuideLoading(true);
-    fetch(GUIDE_URL)
+    fetch(ZIP_INSTALL_GUIDE_URL)
       .then((r) => r.text())
       .then(setGuideMarkdown)
       .catch(() => setGuideMarkdown("# Error\nCould not load the guide. Please check the repository for instructions."))

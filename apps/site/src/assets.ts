@@ -1,6 +1,7 @@
 /**
  * Central asset paths - all assets live under /assets/
  * Vite serves public/ at root, so public/assets/ -> /assets/
+ * Uses import.meta.env.BASE_URL for GitHub Pages subpath (e.g. /openclaw-pixel-office/)
  *
  * Structure:
  *   /assets/
@@ -14,7 +15,10 @@
  *       └── hairstyles/
  */
 
-export const ASSETS_BASE = "/assets";
+const base = import.meta.env.BASE_URL ?? "/";
+export const ASSETS_BASE = `${base}assets`.replace(/\/+/g, "/");
+export const LAYOUT_JSON_URL = `${base}office-layout-converted.json`.replace(/\/+/g, "/");
+export const ZIP_INSTALL_GUIDE_URL = `${base}zip-install-guide.md`.replace(/\/+/g, "/");
 
 export const ASSETS = {
   tiles: {

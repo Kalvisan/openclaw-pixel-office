@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { OfficeLayout } from "@openclaw-office/zipgen";
-import { getLayoutLayers, officeDesignJsonToOfficeLayout, officeLayoutToOfficeDesignJson } from "@openclaw-office/zipgen";
+import { officeDesignJsonToOfficeLayout, officeLayoutToOfficeDesignJson } from "@openclaw-office/zipgen";
 import {
   OBJECTS_BY_CATEGORY,
   getSpriteXY,
@@ -14,7 +14,7 @@ import {
   SHEETS,
   getObjectCells,
 } from "./interiorTiles";
-import { LAYOUT_PRESETS } from "./layoutPresets";
+import { LAYOUT_JSON_URL } from "./assets";
 import {
   buildRoomLayout,
   drawLayout,
@@ -96,7 +96,7 @@ export function LayoutEditor({ layout, onChange }: Props) {
   const [floorBrush, setFloorBrush] = useState<"floor" | "wall">("floor");
   const [floorMaterial, setFloorMaterial] = useState<FloorMaterialName>("grayTile");
   const [isDrawing, setIsDrawing] = useState(false);
-  const [selectedPresetId, setSelectedPresetId] = useState<string | null>("empty");
+  const [selectedPresetId, setSelectedPresetId] = useState<string | null>("modern_office");
   const [sheetImages, setSheetImages] = useState<Record<string, HTMLImageElement>>({});
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
@@ -344,25 +344,20 @@ export function LayoutEditor({ layout, onChange }: Props) {
   }, []);
 
   const resetLayout = useCallback(() => {
-    setSelectedPresetId("empty");
+    setSelectedPresetId("modern_office");
     setActiveLayerIndex(0);
-    const mask = createDefaultRoomMask();
-    const floor = layoutToFloorGrid(
-      buildRoomLayout(mask, {
-        floorMaterial: "grayTile",
-        isWall: (v) => v === 0,
-      }),
-      GRID_WIDTH,
-      GRID_HEIGHT
-    );
-    onChange({
-      width: GRID_WIDTH,
-      height: GRID_HEIGHT,
-      roomMask: mask,
-      floorMaterial: "grayTile",
-      layers: [floor, createEmptyObjectLayer()],
-      spots: EMPTY_SPOTS,
-    });
+    fetch(LAYOUT_JSON_URL)
+      .then((res) => res.json())
+      .then((data) => {
+        const layout =
+          data.version != null && data.world?.bounds
+            ? officeDesignJsonToOfficeLayout(data)
+            : data;
+        onChange(layout);
+      })
+      .catch((err) => {
+        console.error("Failed to load Modern Office:", err);
+      });
   }, [onChange]);
 
   const addObjectLayer = useCallback(() => {
@@ -387,7 +382,7 @@ export function LayoutEditor({ layout, onChange }: Props) {
   }, [roomMask, floorMaterial, objectLayers, spots, onChange, effectiveWidth, effectiveHeight]);
 
   const removeObjectLayer = useCallback(() => {
-    if (activeLayerIndex < 1 || objectLayers.length <= 1) return;
+    if (activeLayerIndex < 1) return;
     const floor = layoutToFloorGrid(
       buildRoomLayout(roomMask, {
         floorMaterial,
@@ -649,7 +644,7 @@ export function LayoutEditor({ layout, onChange }: Props) {
           >
             + Add layer
           </button>
-          {objectLayers.length > 1 && activeLayerIndex >= 1 && (
+          {activeLayerIndex >= 1 && (
             <button
               type="button"
               className="game-btn-secondary"
@@ -720,7 +715,7 @@ export function LayoutEditor({ layout, onChange }: Props) {
             if (id === "modern_office") {
               setSelectedPresetId("modern_office");
               try {
-                const res = await fetch("/office-layout-converted.json");
+                const res = await fetch(LAYOUT_JSON_URL);
                 const data = await res.json();
                 const layout =
                   data.version != null && data.world?.bounds
@@ -731,31 +726,10 @@ export function LayoutEditor({ layout, onChange }: Props) {
                 console.error("Failed to load Modern Office preset:", err);
                 alert("Could not load Modern Office preset.");
               }
-              return;
-            }
-            const preset = LAYOUT_PRESETS[id];
-            if (preset) {
-              setSelectedPresetId(id);
-              const presetLayout = preset.layout;
-              const layers = getLayoutLayers(presetLayout);
-              const mask = presetLayout.roomMask ?? stringGridToRoomMask(layers[0]);
-              const mat =
-                (presetLayout.floorMaterial as FloorMaterialName) ?? "grayTile";
-              onChange({
-                ...presetLayout,
-                roomMask: mask,
-                floorMaterial: mat,
-                layers,
-              });
             }
           }}
         >
-          {Object.entries(LAYOUT_PRESETS).map(([id, { name }]) => (
-            <option key={id} value={id}>
-              {name}
-            </option>
-          ))}
-          <option value="modern_office">Modern Office (Office_Design_1)</option>
+          <option value="modern_office">Modern Office</option>
           <option value="custom">(custom – edited)</option>
         </select>
         <button

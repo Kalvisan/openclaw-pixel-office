@@ -1,9 +1,12 @@
 import { useState, useEffect } from "react";
 import { AgentEditor } from "./AgentEditor";
 import { DownloadZip } from "./DownloadZip";
-import { LayoutEditor } from "./LayoutEditor";
+import { LayoutPreview } from "./LayoutPreview";
 import type { Agent } from "@openclaw-office/core";
-import { mainOfficeLayout, cloneLayout } from "./layoutPresets";
+import type { OfficeLayout } from "@openclaw-office/zipgen";
+import { officeDesignJsonToOfficeLayout } from "@openclaw-office/zipgen";
+import { cloneLayout } from "./layoutPresets";
+import { LAYOUT_JSON_URL } from "./assets";
 import { DEFAULT_CHARACTER } from "./characterAssets";
 
 const BASE_AGENT = {
@@ -34,7 +37,22 @@ export default function App() {
     preset ? [...PRESETS[preset].agents] : []
   );
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [officeLayout, setOfficeLayout] = useState(() => cloneLayout(mainOfficeLayout()));
+  const [officeLayout, setOfficeLayout] = useState<OfficeLayout | null>(null);
+
+  useEffect(() => {
+    fetch(LAYOUT_JSON_URL)
+      .then((res) => res.json())
+      .then((data) => {
+        const layout =
+          data.version != null && data.world?.bounds
+            ? officeDesignJsonToOfficeLayout(data)
+            : data;
+        setOfficeLayout(cloneLayout(layout));
+      })
+      .catch((err) => {
+        console.error("Failed to load Modern Office:", err);
+      });
+  }, []);
 
   useEffect(() => {
     if (preset) {
@@ -79,7 +97,7 @@ export default function App() {
           </section>
 
           <section className="app-section">
-            <LayoutEditor layout={officeLayout} onChange={setOfficeLayout} />
+            <LayoutPreview layout={officeLayout} />
           </section>
           <section className="app-section">
             <DownloadZip agents={agents} officeLayout={officeLayout} />

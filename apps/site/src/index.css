@@ -357,6 +357,8 @@ body::before {
 /* App sections */
 .app-section {
   margin-bottom: 24px;
+  width: 100%;
+  max-width: 100%;
 }
 
 /* Download section */
@@ -987,6 +989,31 @@ body::before {
 .layout-reset-btn {
   padding: 8px 12px;
   font-size: 0.9rem;
+}
+
+/* Layout preview - read-only, full-width, no scrollbars */
+.layout-preview-panel {
+  width: 100%;
+  max-width: 100%;
+}
+
+.layout-preview-wrap {
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  background: rgba(15, 52, 96, 0.5);
+  border: 2px solid var(--game-panel-border);
+  border-radius: var(--radius-md);
+  padding: 12px;
+}
+
+.layout-preview-canvas {
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  max-width: 100%;
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1px rgba(15, 52, 96, 0.3);
 }
 
 .layout-canvas-wrap {

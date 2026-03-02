@@ -66,7 +66,6 @@ export function officeDesignJsonToOfficeLayout(json: OfficeDesignJson): OfficeLa
 
   const toGrid = (x: number, y: number) => ({ x: x - minX, y: y - minY });
 
-  const defaultFloor = "rb_6_0";
   const floor: string[][] = Array(height)
     .fill(null)
     .map(() => Array(width).fill(""));
@@ -102,11 +101,7 @@ export function officeDesignJsonToOfficeLayout(json: OfficeDesignJson): OfficeLa
     }
   }
 
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      if (!floor[y][x]) floor[y][x] = defaultFloor;
-    }
-  }
+  // Empty floor cells stay empty (render as black/nothing)
 
   const spots: Record<string, { x: number; y: number }[]> = {
     desk: [],
