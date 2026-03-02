@@ -1,8 +1,22 @@
-# Empty Office Map Format
+# Office Map Export Format
 
-Reference format for an empty office (floor + walls, no furniture). Used by 2D map editors and runtime.
+Reference formats for office maps. Used by 2D map editors and runtime.
 
-## Structure
+## Version 3 (9 desk spots)
+
+- **version**: 3
+- **files**: Multiple tilesets
+  - `base`: Room_Builder_Office_16x16.png (floor + walls)
+  - `assets`: Modern_Office_Black_Shadow.png (16×53, 848 tiles – furniture)
+- **layers**: Each layer has `tilesetKey` (base | assets)
+  - Layer 0: base (floor/walls)
+  - Layers 1–3: assets (desks, chairs, decor)
+- **spots**: `items`, `types` (sit, work, find)
+- **collision**: blocked, rules
+
+See `office-export-9-desks.json` for full structure (tiles truncated in template).
+
+## Version 2 (empty)
 
 - **version**: 2
 - **tileSize**: 16×16
@@ -14,9 +28,4 @@ Reference format for an empty office (floor + walls, no furniture). Used by 2D m
 
 ## Tile ID
 
-`tileId` is 0-indexed: `tileId = row * 16 + col` in the Room_Builder sheet.
-
-## Files
-
-- `empty-office.json` – minimal template (empty layers)
-- Full example: see user-provided JSON with populated Layer 0 (floor + walls)
+`tileId` is 0-indexed: `tileId = row * 16 + col` in the tileset sheet.

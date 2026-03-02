@@ -1,0 +1,49 @@
+{
+  "version": 3,
+  "tileSize": { "width": 16, "height": 16 },
+  "files": {
+    "base": {
+      "imageName": "Room_Builder_Office_16x16.png",
+      "imageWidth": 256,
+      "imageHeight": 224,
+      "columns": 16,
+      "rows": 14,
+      "totalTiles": 224
+    },
+    "assets": {
+      "imageName": "Modern_Office_Black_Shadow.png",
+      "imageWidth": 256,
+      "imageHeight": 848,
+      "columns": 16,
+      "rows": 53,
+      "totalTiles": 848
+    }
+  },
+  "world": {
+    "infinite": true,
+    "bounds": { "minX": -20, "maxX": 20, "minY": -14, "maxY": 14 }
+  },
+  "camera": {
+    "x": 6.06232549147953,
+    "y": 4.556766601668254,
+    "zoom": 3.4378877334780036
+  },
+  "layers": [
+    { "id": 0, "name": "Layer 0", "type": "base", "tilesetKey": "base", "tiles": [] },
+    { "id": 1, "name": "Layer 1", "type": "assets", "tilesetKey": "assets", "tiles": [] },
+    { "id": 2, "name": "Layer 2", "type": "assets", "tilesetKey": "assets", "tiles": [] },
+    { "id": 3, "name": "Layer 3", "type": "assets", "tilesetKey": "assets", "tiles": [] }
+  ],
+  "collision": {
+    "blocked": [],
+    "rules": { "0": "walkable", "1": "blocked" }
+  },
+  "spots": {
+    "items": [],
+    "types": {
+      "sit": "NPC can sit here",
+      "work": "NPC can work here",
+      "find": "NPC can search or find here"
+    }
+  }
+}

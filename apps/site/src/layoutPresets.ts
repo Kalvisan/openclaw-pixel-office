@@ -224,6 +224,71 @@ function largeRoomPreset(): OfficeLayout {
   return roomPreset(roomMask, furniture);
 }
 
+/** Main office layout – 9 desks (3×3 grid), chairs, meeting, closet. Used as default. */
+export function mainOfficeLayout(): OfficeLayout {
+  const roomMask = quadrilateralRoomMask(W, H);
+  const floor = layoutToFloorGrid(
+    buildRoomLayout(roomMask, { floorMaterial: "grayTile", isWall: (v) => v === 0 }),
+    W,
+    H
+  );
+  const furniture = emptyObjectGrid();
+
+  // L-desk 2×2 tile IDs (in_0_0, in_0_1, in_1_0, in_1_1)
+  const DESK_TL = "in_0_0";
+  const DESK_TR = "in_0_1";
+  const DESK_BL = "in_1_0";
+  const DESK_BR = "in_1_1";
+
+  // 9 desks in 3×3 grid (start 10,6, spacing 3)
+  const deskPositions = [
+    [10, 6], [13, 6], [16, 6],
+    [10, 9], [13, 9], [16, 9],
+    [10, 12], [13, 12], [16, 12],
+  ];
+  for (const [dx, dy] of deskPositions) {
+    furniture[dy][dx] = DESK_TL;
+    furniture[dy][dx + 1] = DESK_TR;
+    furniture[dy + 1][dx] = DESK_BL;
+    furniture[dy + 1][dx + 1] = DESK_BR;
+  }
+
+  // Sofas (2×1) – waiting area
+  const SOFA_L = "in_8_0";
+  const SOFA_R = "in_8_1";
+  furniture[10][6] = SOFA_L;
+  furniture[10][7] = SOFA_R;
+  furniture[10][32] = SOFA_L;
+  furniture[10][33] = SOFA_R;
+
+  const filterInRoom = (positions: { x: number; y: number }[]) =>
+    positions.filter((p) => inRoom(roomMask, p.x, p.y));
+
+  // Desk spots (work position – front of each desk)
+  const deskSpots = deskPositions.map(([x, y]) => ({ x: x + 1, y: y + 1 }));
+  // Chair spots (waiting – near sofas)
+  const chairSpots = [
+    { x: 8, y: 10 }, { x: 9, y: 10 },
+    { x: 33, y: 10 }, { x: 34, y: 10 },
+  ];
+  const closetSpot = { x: 14, y: 20 };
+  const meetingSpot = { x: 19, y: 16 };
+
+  return {
+    width: W,
+    height: H,
+    roomMask,
+    floorMaterial: "grayTile",
+    layers: [floor, furniture],
+    spots: {
+      desk: filterInRoom(deskSpots),
+      chair: filterInRoom(chairSpots),
+      meeting: filterInRoom([meetingSpot]),
+      closet: filterInRoom([closetSpot]),
+    },
+  };
+}
+
 export const LAYOUT_PRESETS: Record<string, { name: string; layout: OfficeLayout }> = {
   empty: { name: "Empty", layout: emptyPreset() },
   large_room: { name: "Large room (tables + sofas)", layout: largeRoomPreset() },

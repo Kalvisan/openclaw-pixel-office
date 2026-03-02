@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { AgentEditor } from "./AgentEditor";
 import { DownloadZip } from "./DownloadZip";
 import type { Agent } from "@openclaw-office/core";
-import { generateOfficeLayoutFromAgents } from "./layoutPresets";
+import { mainOfficeLayout } from "./layoutPresets";
 import { DEFAULT_CHARACTER } from "./characterAssets";
 
 const BASE_AGENT = {
@@ -33,11 +33,8 @@ export default function App() {
     preset ? [...PRESETS[preset].agents] : []
   );
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  // Auto-generated layout: empty floor + spots (desk, chair, closet, meeting) from agent count
-  const officeLayout = useMemo(
-    () => generateOfficeLayoutFromAgents(agents),
-    [agents]
-  );
+  // Main layout: 9 desks, chairs, meeting, closet (fixed layout)
+  const officeLayout = useMemo(() => mainOfficeLayout(), []);
 
   useEffect(() => {
     if (preset) {
@@ -62,7 +59,7 @@ export default function App() {
         <h1 className="game-font-title">OpenClaw Office</h1>
         <p className="app-tagline">
           Build your virtual office: pick a team preset, customize each agent (body, outfit, hair, face),
-          define who reports to whom. Layout and spots (desk, chair, closet, meeting) are auto-generated from your team.
+          define who reports to whom. Layout includes 9 desks, chairs, meeting and closet spots.
           Export a ready-to-deploy zip. No login. Runs in browser.
         </p>
       </header>
