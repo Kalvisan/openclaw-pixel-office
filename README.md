@@ -4,40 +4,79 @@ A visual builder to create AI agent teams for OpenClaw. Define agents, design yo
 
 ---
 
-## For users
+## Install on your OpenClaw (step-by-step)
 
-### What you need
+### Step 1: Prerequisites
 
-- **Node.js 18+**
-- **pnpm** (`npm install -g pnpm`)
-- **OpenClaw** installed and running (optional until you want to use the exported pack)
+- **Node.js 18+** – [nodejs.org](https://nodejs.org)
+- **pnpm** – `npm install -g pnpm`
+- **pm2** – `npm install -g pm2` (for runtime control: start, stop, restart, logs)
+- **OpenClaw** – [openclaw.ai](https://openclaw.ai) – install and run it first
 
-### How to run
+### Step 2: Get the project
+
+```bash
+git clone https://github.com/Kalvisan/openclaw-pixel-office.git
+cd openclaw-pixel-office
+pnpm install
+```
+
+### Step 3: First time – create agents and install the pack
+
+Run the **builder** (for creating agents and generating ZIP):
+
+```bash
+pnpm dev:site
+```
+
+Open **http://localhost:5173**. Pick a team preset, edit agents, click **Generate & Download**. Then:
+
+- **If you have OpenClaw with data:** Backup `.openclaw`, extract the ZIP elsewhere. Copy only `agents/`, `AGENTS.md`, `openclaw-config.json`, `SOUL.md`, `office/` into `.openclaw`. Do not overwrite `plans/`, `MEMORY.md`, `USER.md`.
+- **If OpenClaw is new:** Extract the ZIP and copy the whole `openclaw-office` folder into `.openclaw`.
+
+Restart OpenClaw. You only need the builder when creating or changing agents.
+
+### Step 4: Run for daily use (orchestration + office view)
+
+**Start** (runs in background, survives terminal close):
+```bash
+pnpm runtime:start
+```
+
+**Stop:**
+```bash
+pnpm runtime:stop
+```
+
+**Restart:**
+```bash
+pnpm runtime:restart
+```
+
+**View logs** (live):
+```bash
+pnpm runtime:logs
+```
+
+**Check status:**
+```bash
+pnpm runtime:status
+```
+
+Open **http://localhost:5174** – orchestration status and office view.
+
+---
+
+## For developers
+
+### Run locally
 
 ```bash
 pnpm install
 pnpm dev:site
 ```
 
-Open **http://localhost:5173** in your browser.
-
-### What to do
-
-1. **Pick a team preset** – "Virtual IT Agency" (CEO, PM, Developer, QA, Designer, Researcher) or start custom.
-2. **Edit each agent** – name, role, tone, tools (read_file, write_file, run_terminal, web_search), spots (desk, chair, meeting, closet), and who they report to.
-3. **View the office layout** – preview of desks, chairs, meeting spots.
-4. **Click "Generate & Download"** – you get a ZIP file.
-5. **Install the ZIP into OpenClaw:**
-   - Find your **`.openclaw`** folder (may be hidden).
-   - If you **already have OpenClaw with data**: backup first, extract ZIP elsewhere, copy only `agents/`, `AGENTS.md`, `openclaw-config.json`, `SOUL.md`, `office/` into `.openclaw`. Do not overwrite `plans`, `MEMORY.md`, `USER.md`.
-   - If **starting from scratch**: extract the ZIP and copy the whole `openclaw-office` folder into `.openclaw`.
-   - **Restart OpenClaw.**
-
-After download, the app shows a guide ("What to do with the ZIP file?") with detailed steps.
-
----
-
-## For developers
+Open **http://localhost:5173** – builder UI for development and testing.
 
 ### Architecture
 
@@ -55,10 +94,13 @@ After download, the app shows a guide ("What to do with the ZIP file?") with det
 
 | Command | Description |
 |---------|-------------|
-| `pnpm dev:site` | Builder – http://localhost:5173 |
-| `pnpm dev:office-viewer` | Tilemap viewer – http://localhost:5176 |
-| `pnpm dev:runtime` | Runtime API (5175) + UI (5174) |
-| `pnpm setup-office-assets` | Generate tiles and TMX for office-viewer |
+| `pnpm dev:site` | Builder – create agents, generate ZIP (http://localhost:5173) |
+| `pnpm dev:runtime` | Runtime – orchestration + office view (http://localhost:5174) |
+| `pnpm runtime:start` | Start runtime via pm2 (background) |
+| `pnpm runtime:stop` | Stop runtime |
+| `pnpm runtime:restart` | Restart runtime |
+| `pnpm runtime:logs` | View runtime logs |
+| `pnpm runtime:status` | Check runtime status |
 | `pnpm build` | Build all packages |
 
 ### Project structure
