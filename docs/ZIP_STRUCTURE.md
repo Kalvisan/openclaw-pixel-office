@@ -21,7 +21,7 @@ openclaw-office/
 ├── USER.md                # User profile template
 ├── office/                # (optional, when layout configured)
 │   ├── layout.toon
-│   └── rpgjs/
+│   └── map/
 │       ├── officemap.tmx
 │       ├── Room_Builder_Office.tsx
 │       ├── Modern_Office.tsx

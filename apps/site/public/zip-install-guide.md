@@ -11,7 +11,7 @@ The ZIP file has been downloaded. Follow the steps below based on your situation
 2. **Extract the ZIP file** (double-click it). You will get an `openclaw-office` folder (AgentPack layout, matches free-sample):
    - `agents/<id>/` – IDENTITY.md, SOUL.md per agent
    - `AGENTS.md`, `openclaw-config.json`, `README.md`, `SOUL.md`, `USER.md`, `TOOLS.md`, `MEMORY.md`, `HEARTBEAT.md`
-   - `office/` – office layout and RPGJS map (when configured)
+   - `office/` – office layout and TMX map (when configured)
    - `runtime/` – config and environment setup
 
 3. **Copy the entire `openclaw-office` folder** into `.openclaw` – or use it as your OpenClaw workspace root.

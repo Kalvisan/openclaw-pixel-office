@@ -9,12 +9,15 @@
     "dev:site": "pnpm --filter site dev",
     "dev:runtime": "pnpm --filter runtime dev",
     "lint": "pnpm -r run lint",
-    "generate-officemap": "node scripts/generate-officemap.mjs",
+    "generate-officemap": "tsx scripts/generate-officemap.mts",
     "stitch-modern-office": "node scripts/stitch-modern-office.mjs",
-    "dev:rpgjs": "pnpm --filter openclaw-office-rpgjs dev"
+    "setup-office-assets": "node scripts/setup-office-assets.mjs",
+    "dev:office-viewer": "pnpm --filter office-viewer dev"
   },
   "devDependencies": {
+    "@openclaw-office/zipgen": "workspace:*",
     "sharp": "^0.33.5",
+    "tsx": "^4.7.0",
     "typescript": "^5.3.3"
   },
   "engines": {

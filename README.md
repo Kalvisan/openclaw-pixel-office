@@ -12,7 +12,7 @@ OpenClaw Pixel Office is a **visual builder** for creating agent teams. Instead 
 - **Design your office** – place desks, chairs, meeting spots, and furniture on a map
 - **Export a ZIP** – get an AgentPack compatible with OpenClaw (free-sample layout)
 
-The generated pack includes everything OpenClaw needs: `agents/<id>/IDENTITY.md`, `SOUL.md`, `openclaw-config.json`, and optional office layout for RPGJS-style maps.
+The generated pack includes everything OpenClaw needs: `agents/<id>/IDENTITY.md`, `SOUL.md`, `openclaw-config.json`, and optional office layout with TMX map for 2D visualization.
 
 ---
 
@@ -62,7 +62,7 @@ Use the layout editor to:
 - Add furniture (desks, chairs, meeting tables, closets)
 - Assign spots so agents know where to "work" in the map
 
-The layout can be exported as an RPGJS-compatible TMX map for in-game visualization.
+The layout can be exported as a TMX map for 2D office visualization (PixiJS, Phaser, etc.).
 
 <!-- Add screenshot: layout editor with grid -->
 
@@ -73,7 +73,7 @@ Click **Generate & Download** to create a ZIP file. The ZIP contains:
 - `agents/<id>/` – IDENTITY.md and SOUL.md per agent
 - `openclaw-config.json` – agent list, models, workspaces
 - `AGENTS.md`, `SOUL.md`, `USER.md`, `TOOLS.md`, `MEMORY.md`, `HEARTBEAT.md` – pack templates
-- `office/` – layout and RPGJS map (when configured)
+- `office/` – layout and TMX map (when configured)
 
 <!-- Add screenshot: download button and modal -->
 
@@ -90,6 +90,7 @@ See the in-app guide ("What to do with the ZIP file?") for detailed steps.
 | Component | Purpose |
 |-----------|---------|
 | **site** | Public builder UI – agent editor, layout editor, ZIP download |
+| **office-viewer** | 2D tilemap viewer (PixiJS) – preview office layout |
 | **runtime** | Local web UI and 2D office visualization |
 | **zipgen** | Generates AgentPack ZIP (free-sample layout) |
 | **core** | Domain models: Agent, Plan, Task, Event |
@@ -104,8 +105,9 @@ OpenClaw is the execution backend. This tool is the planner, visualizer, and ada
 
 ```
 apps/
-  site/       # Builder (GitHub Pages)
-  runtime/    # Local web UI + 2D office
+  site/           # Builder (GitHub Pages)
+  office-viewer/ # 2D tilemap viewer (PixiJS)
+  runtime/       # Local web UI + 2D office
 packages/
   toon/       # TOON parser, serializer
   core/       # Agent, Plan, Task, Event
@@ -126,7 +128,9 @@ docs/
 | Command | Description |
 |---------|-------------|
 | `pnpm dev:site` | Start the builder at http://localhost:5173 |
+| `pnpm dev:office-viewer` | Start office tilemap viewer at http://localhost:5176 |
 | `pnpm dev:runtime` | Start runtime API (5175) and UI (5174) |
+| `pnpm setup-office-assets` | Generate tiles and TMX for office-viewer |
 | `pnpm build` | Build all packages |
 
 ---

@@ -41,7 +41,7 @@ export function DownloadZip({ agents, officeLayout }: Props) {
     setLoading(true);
     setShowModal(false);
     try {
-      let rpgjsAssets: { roomPng: Uint8Array; interiorsPng: Uint8Array } | undefined;
+      let mapAssets: { roomPng: Uint8Array; interiorsPng: Uint8Array } | undefined;
       if (officeLayout) {
         const [roomRes, interiorBlob] = await Promise.all([
           fetch(ASSETS.tiles.room).then((r) => r.arrayBuffer()),
@@ -66,7 +66,7 @@ export function DownloadZip({ agents, officeLayout }: Props) {
               })
             ),
         ]);
-        rpgjsAssets = {
+        mapAssets = {
           roomPng: new Uint8Array(roomRes),
           interiorsPng: interiorBlob,
         };
@@ -76,7 +76,7 @@ export function DownloadZip({ agents, officeLayout }: Props) {
         officeLayout: officeLayout
           ? normalizeLayoutForExport(officeLayout)
           : undefined,
-        rpgjsAssets,
+        mapAssets,
       });
       const blob = new Blob([zip as BlobPart], { type: "application/zip" });
       const url = URL.createObjectURL(blob);
