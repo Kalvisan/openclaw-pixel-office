@@ -11,6 +11,7 @@ Thumbs.db
 
 # pnpm
 .pnpm-store
+.pnpm
 
 # Build / cache
 .turbo
