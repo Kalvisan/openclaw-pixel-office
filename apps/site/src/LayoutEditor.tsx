@@ -218,10 +218,10 @@ export function LayoutEditor({ layout, onChange }: Props) {
   const setSpot = useCallback(
     (gx: number, gy: number, spotType: keyof typeof EMPTY_SPOTS | null) => {
       const next: typeof spots = {
-        desk: spots.desk.filter((p) => !(p.x === gx && p.y === gy)),
-        chair: spots.chair.filter((p) => !(p.x === gx && p.y === gy)),
-        meeting: spots.meeting.filter((p) => !(p.x === gx && p.y === gy)),
-        closet: spots.closet.filter((p) => !(p.x === gx && p.y === gy)),
+        desk: spots.desk.filter((p: { x: number; y: number }) => !(p.x === gx && p.y === gy)),
+        chair: spots.chair.filter((p: { x: number; y: number }) => !(p.x === gx && p.y === gy)),
+        meeting: spots.meeting.filter((p: { x: number; y: number }) => !(p.x === gx && p.y === gy)),
+        closet: spots.closet.filter((p: { x: number; y: number }) => !(p.x === gx && p.y === gy)),
       };
       if (spotType === "desk") next.desk.push({ x: gx, y: gy });
       else if (spotType === "chair") next.chair.push({ x: gx, y: gy });
@@ -396,7 +396,7 @@ export function LayoutEditor({ layout, onChange }: Props) {
       effectiveWidth,
       effectiveHeight
     );
-    const nextLayers = objectLayers.filter((_, i) => i !== activeLayerIndex - 1);
+    const nextLayers = objectLayers.filter((_: string[][], i: number) => i !== activeLayerIndex - 1);
     setActiveLayerIndex(Math.min(activeLayerIndex, nextLayers.length));
     onChange({
       width: effectiveWidth,
@@ -494,7 +494,7 @@ export function LayoutEditor({ layout, onChange }: Props) {
     ctx.save();
     ctx.scale(DISPLAY_SCALE, DISPLAY_SCALE);
     const floorLayer = layout?.layers?.[0];
-    const hasRbTiles = floorLayer?.some((row) => row?.some((c) => c?.startsWith("rb_")));
+    const hasRbTiles = floorLayer?.some((row: string[]) => row?.some((c: string) => c?.startsWith("rb_")));
     if (hasRbTiles && floorLayer && sheetImages.room) {
       for (let gy = 0; gy < effectiveHeight; gy++) {
         for (let gx = 0; gx < effectiveWidth; gx++) {
@@ -630,7 +630,7 @@ export function LayoutEditor({ layout, onChange }: Props) {
           >
             Floor
           </button>
-          {objectLayers.map((_, i) => (
+          {objectLayers.map((_: string[][], i: number) => (
             <button
               key={i}
               type="button"

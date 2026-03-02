@@ -96,7 +96,7 @@ export function normalizeLayoutForExport(layout: OfficeLayout): OfficeLayout {
 
 /** Clone layout for use as initial state (avoid mutating presets) */
 export function cloneLayout(layout: OfficeLayout): OfficeLayout {
-  const layers = getLayoutLayers(layout).map((l) => l.map((r) => [...r]));
+  const layers = getLayoutLayers(layout).map((l: string[][]) => l.map((r: string[]) => [...r]));
   const result: OfficeLayout = {
     width: layout.width ?? W,
     height: layout.height ?? H,

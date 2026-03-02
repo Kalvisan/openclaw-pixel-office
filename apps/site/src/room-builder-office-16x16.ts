@@ -207,7 +207,7 @@ export function drawLayout(
 
 export function stringGridToRoomMask(
   grid: string[][],
-  isWall: (tileId: string) => boolean = (id) =>
+  isWall: (tileId: string) => boolean = (id: string) =>
     !!id?.startsWith("rb_") &&
     !id.startsWith("rb_6_") &&
     !id.startsWith("rb_7_") &&

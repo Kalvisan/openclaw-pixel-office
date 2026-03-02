@@ -34,7 +34,7 @@ export function AgentEditor({ agents, selectedId, onSelect, onChange, presetPres
     const agent = agents[fromIdx];
     const deps = agent.deps ?? [];
     const has = deps.includes(toId);
-    const newDeps = has ? deps.filter((d) => d !== toId) : [...deps, toId];
+    const newDeps = has ? deps.filter((d: string) => d !== toId) : [...deps, toId];
     update(fromIdx, { deps: newDeps });
   };
 
@@ -71,7 +71,7 @@ export function AgentEditor({ agents, selectedId, onSelect, onChange, presetPres
         <p className="section-hint">Tap an agent to edit</p>
         <div className="team-grid">
           {agents.map((a) => {
-            const depAgents = (a.deps ?? []).map((id) => agents.find((x) => x.id === id)).filter(Boolean) as Agent[];
+            const depAgents = (a.deps ?? []).map((id: string) => agents.find((x) => x.id === id)).filter(Boolean) as Agent[];
             return (
             <button
               key={a.id}
@@ -88,8 +88,8 @@ export function AgentEditor({ agents, selectedId, onSelect, onChange, presetPres
                   {a.role}
                 </span>
                 {depAgents.length > 0 && (
-                  <div style={{ display: "flex", gap: 4, marginTop: 4, flexWrap: "wrap", justifyContent: "center" }} title={`Reports to: ${depAgents.map((d) => d.name).join(", ")}`}>
-                    {depAgents.map((d) => (
+                  <div style={{ display: "flex", gap: 4, marginTop: 4, flexWrap: "wrap", justifyContent: "center" }} title={`Reports to: ${depAgents.map((d: Agent) => d.name).join(", ")}`}>
+                    {depAgents.map((d: Agent) => (
                       <CharacterAvatar key={d.id} character={d.character} name={d.name} size={24} />
                     ))}
                   </div>
