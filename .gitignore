@@ -5,5 +5,18 @@ data
 .env
 .env.local
 .DS_Store
+Thumbs.db
 *.log
 .cursor
+
+# pnpm
+.pnpm-store
+
+# Build / cache
+.turbo
+*.tsbuildinfo
+coverage
+
+# IDE
+.idea
+.vscode

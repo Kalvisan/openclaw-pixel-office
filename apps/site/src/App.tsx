@@ -1,10 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { AgentEditor } from "./AgentEditor";
-import { LayoutEditor } from "./LayoutEditor";
 import { DownloadZip } from "./DownloadZip";
 import type { Agent } from "@openclaw-office/core";
-import type { OfficeLayout } from "@openclaw-office/zipgen";
-import { LAYOUT_PRESETS } from "./layoutPresets";
+import { generateOfficeLayoutFromAgents } from "./layoutPresets";
 import { DEFAULT_CHARACTER } from "./characterAssets";
 
 const BASE_AGENT = {
@@ -24,7 +22,7 @@ const PRESETS = {
       { ...BASE_AGENT, id: "dev", name: "Mike", role: "Developer", character: { ...DEFAULT_CHARACTER, outfit: "outfit_3", hair: "hair_15" }, spots: ["desk"], deps: ["pm"], tools_allowed: ["read_file", "write_file", "run_terminal"], tone: "technical", context_budget_tokens: 8192 },
       { ...BASE_AGENT, id: "qa", name: "Lisa", role: "QA Engineer", character: { ...DEFAULT_CHARACTER, outfit: "outfit_4", hair: "hair_20" }, spots: ["desk"], deps: ["dev"], tools_allowed: ["read_file", "run_terminal"], tone: "analytical" },
       { ...BASE_AGENT, id: "designer", name: "Emma", role: "UI/UX Designer", character: { ...DEFAULT_CHARACTER, outfit: "outfit_5", hair: "hair_25" }, spots: ["desk"], deps: ["pm"], tools_allowed: ["read_file", "write_file"], tone: "creative" },
-      { ...BASE_AGENT, id: "researcher", name: "Alex", role: "Research", character: { ...DEFAULT_CHARACTER, outfit: "outfit_6", hair: "hair_30" }, spots: ["desk", "sofa"], deps: ["pm"], tools_allowed: ["read_file", "web_search"], tone: "curious", context_budget_tokens: 8192 },
+      { ...BASE_AGENT, id: "researcher", name: "Alex", role: "Research", character: { ...DEFAULT_CHARACTER, outfit: "outfit_6", hair: "hair_30" }, spots: ["desk", "chair"], deps: ["pm"], tools_allowed: ["read_file", "web_search"], tone: "curious", context_budget_tokens: 8192 },
     ] as Agent[],
   },
 };
@@ -35,8 +33,11 @@ export default function App() {
     preset ? [...PRESETS[preset].agents] : []
   );
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const defaultLayout = useMemo((): OfficeLayout => LAYOUT_PRESETS.preset_office.layout, []);
-  const [officeLayout, setOfficeLayout] = useState<OfficeLayout>(defaultLayout);
+  // Auto-generated layout: empty floor + spots (desk, chair, closet, meeting) from agent count
+  const officeLayout = useMemo(
+    () => generateOfficeLayoutFromAgents(agents),
+    [agents]
+  );
 
   useEffect(() => {
     if (preset) {
@@ -61,8 +62,8 @@ export default function App() {
         <h1 className="game-font-title">OpenClaw Office</h1>
         <p className="app-tagline">
           Build your virtual office: pick a team preset, customize each agent (body, outfit, hair, face),
-          define who reports to whom, design your office layout with pixel-art tiles, then export a ready-to-deploy zip.
-          No login. Runs in browser.
+          define who reports to whom. Layout and spots (desk, chair, closet, meeting) are auto-generated from your team.
+          Export a ready-to-deploy zip. No login. Runs in browser.
         </p>
       </header>
 
@@ -78,10 +79,6 @@ export default function App() {
               onSelect={setSelectedId}
               onChange={setAgents}
             />
-          </section>
-
-          <section className="app-section">
-            <LayoutEditor layout={officeLayout} onChange={setOfficeLayout} />
           </section>
 
           <section className="app-section">

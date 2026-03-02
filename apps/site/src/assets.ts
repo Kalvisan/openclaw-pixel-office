@@ -4,9 +4,9 @@
  *
  * Structure:
  *   /assets/
- *   ├── tiles/           - Office layout (Room_Builder, Modern_Office)
- *   │   ├── Room_Builder_Office_16x16.png
- *   │   └── Modern_Office_Shadowless_16x16.png
+ *   ├── tiles/           - Office layout
+ *   │   ├── Room_Builder_Office_16x16.png (floors/walls)
+ *   │   └── Modern_Office_Black_Shadow.png (interior objects)
  *   └── characters/      - MV Character Generator
  *       ├── bodies/
  *       ├── outfits/
@@ -19,7 +19,7 @@ export const ASSETS_BASE = "/assets";
 export const ASSETS = {
   tiles: {
     room: `${ASSETS_BASE}/tiles/Room_Builder_Office_16x16.png`,
-    interiors: `${ASSETS_BASE}/tiles/Modern_Office_Shadowless_16x16.png`,
+    interior: `${ASSETS_BASE}/tiles/Modern_Office_Black_Shadow.png`,
   },
   characters: {
     base: `${ASSETS_BASE}/characters`,

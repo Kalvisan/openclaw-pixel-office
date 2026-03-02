@@ -22,7 +22,7 @@ export interface Agent {
   /** @deprecated Use character instead */
   sprite?: string;
   character?: CharacterAppearance; // body, outfit, hair, eyes
-  spots: string[]; // desk, sofa, locker, meeting
+  spots: string[]; // desk, chair, meeting
 }
 
 export const AGENT_SCHEMA = {

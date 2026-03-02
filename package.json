@@ -8,9 +8,13 @@
     "dev": "pnpm -r run dev --parallel",
     "dev:site": "pnpm --filter site dev",
     "dev:runtime": "pnpm --filter runtime dev",
-    "lint": "pnpm -r run lint"
+    "lint": "pnpm -r run lint",
+    "generate-officemap": "node scripts/generate-officemap.mjs",
+    "stitch-modern-office": "node scripts/stitch-modern-office.mjs",
+    "dev:rpgjs": "pnpm --filter openclaw-office-rpgjs dev"
   },
   "devDependencies": {
+    "sharp": "^0.33.5",
     "typescript": "^5.3.3"
   },
   "engines": {

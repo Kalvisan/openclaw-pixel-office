@@ -56,7 +56,7 @@ export function AgentEditor({ agents, selectedId, onSelect, onChange, presetPres
       escalation_rules: {},
       deps: [],
       character: { ...DEFAULT_CHARACTER },
-      spots: ["desk"],
+      spots: ["desk", "chair", "closet"],
     };
     onChange([...agents, newAgent]);
     onSelect(id);
