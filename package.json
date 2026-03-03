@@ -17,7 +17,8 @@
     "generate-officemap": "tsx scripts/generate-officemap.mts",
     "stitch-modern-office": "node scripts/stitch-modern-office.mjs",
     "setup-office-assets": "node scripts/setup-office-assets.mjs",
-    "dev:office-viewer": "pnpm --filter office-viewer dev"
+    "dev:office-viewer": "pnpm --filter office-viewer dev",
+    "postinstall": "pnpm run build"
   },
   "devDependencies": {
     "@openclaw-office/zipgen": "workspace:*",

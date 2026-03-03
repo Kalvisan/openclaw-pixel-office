@@ -43,13 +43,14 @@ const PRESETS = {
   },
 };
 
+const STORAGE_KEY = "pixel-office-state-v1";
+
 export default function App() {
-  const [preset, setPreset] = useState<keyof typeof PRESETS | null>("virtual_it_agency");
-  const [agents, setAgents] = useState<Agent[]>(
-    preset ? [...PRESETS[preset].agents] : []
-  );
+  const [preset, setPreset] = useState<keyof typeof PRESETS | "__custom__" | null>(null);
+  const [agents, setAgents] = useState<Agent[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [officeLayout, setOfficeLayout] = useState<OfficeLayout | null>(null);
+  const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
     fetch(LAYOUT_JSON_URL)
@@ -66,12 +67,46 @@ export default function App() {
       });
   }, []);
 
+  // Initialize from localStorage (or default preset) once on mount
   useEffect(() => {
-    if (preset) {
-      setAgents([...PRESETS[preset].agents]);
-      setSelectedId(PRESETS[preset].agents[0]?.id ?? null);
+    if (initialized) return;
+    try {
+      const raw = typeof window !== "undefined" ? window.localStorage.getItem(STORAGE_KEY) : null;
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed.preset !== undefined) {
+          setPreset(parsed.preset);
+        }
+        if (Array.isArray(parsed.agents)) {
+          setAgents(parsed.agents);
+        }
+        if (typeof parsed.selectedId === "string" || parsed.selectedId === null) {
+          setSelectedId(parsed.selectedId);
+        }
+        setInitialized(true);
+        return;
+      }
+    } catch (e) {
+      console.warn("Failed to load saved Pixel Office state", e);
     }
-  }, [preset]);
+    // Fallback: default preset
+    setPreset("virtual_it_agency");
+    setAgents([...PRESETS.virtual_it_agency.agents]);
+    setSelectedId(PRESETS.virtual_it_agency.agents[0]?.id ?? null);
+    setInitialized(true);
+  }, [initialized]);
+
+  // Persist to localStorage whenever state changes after init
+  useEffect(() => {
+    if (!initialized) return;
+    try {
+      if (typeof window === "undefined") return;
+      const payload = { preset, agents, selectedId };
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    } catch (e) {
+      console.warn("Failed to save Pixel Office state", e);
+    }
+  }, [preset, agents, selectedId, initialized]);
 
   const applyPreset = (key: string) => {
     if (key === "__custom__") {

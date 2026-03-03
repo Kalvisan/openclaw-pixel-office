@@ -3,6 +3,8 @@ import { CharacterAvatar } from "./CharacterAvatar";
 import { CharacterEditor } from "./CharacterEditor";
 import { IconTeam, IconLink, IconPlus } from "./Icons";
 import { DEFAULT_CHARACTER } from "./characterAssets";
+import type { RoleProfile } from "./roles";
+import { BUILTIN_ROLES } from "./roles";
 
 interface PresetItem {
   id: string;
@@ -21,7 +23,13 @@ interface Props {
 
 const CUSTOM_PRESET_ID = "__custom__";
 
+function getAllRoles(): RoleProfile[] {
+  return BUILTIN_ROLES;
+}
+
 export function AgentEditor({ agents, selectedId, onSelect, onChange, presetPresets, presetSelected, onPresetSelect }: Props) {
+  const allRoles = getAllRoles();
+  void allRoles;
   const update = (idx: number, patch: Partial<Agent>) => {
     const next = [...agents];
     next[idx] = { ...next[idx], ...patch };
@@ -185,6 +193,23 @@ export function AgentEditor({ agents, selectedId, onSelect, onChange, presetPres
                 character={selected.character ?? DEFAULT_CHARACTER}
                 onChange={(character) => update(selectedIdx, { character })}
               />
+            </div>
+            <div className="form-field">
+              <button
+                type="button"
+                className="game-button danger"
+                onClick={() => {
+                  const next = agents.filter((a) => a.id !== selected.id);
+                  onChange(next);
+                  if (next.length === 0) {
+                    onSelect("");
+                  } else if (!next.find((a) => a.id === selectedId)) {
+                    onSelect(next[0].id);
+                  }
+                }}
+              >
+                Remove from team
+              </button>
             </div>
           </div>
         </div>
