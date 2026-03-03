@@ -1,45 +1,52 @@
 # ZIP Output Structure
 
-The generated ZIP matches the **free-sample-v1.2.0** AgentPack layout.
+Generated ZIP layout.
 
 ## Folder Layout
 
 ```
 openclaw-office/
-├── agents/
-│   └── <agent_id>/
-│       ├── IDENTITY.md    # Name, Role, Emoji, Strengths, Style
-│       └── SOUL.md        # Personality, behavior, style
-├── AGENTS.md              # Team overview, setup
-├── HEARTBEAT.md           # Empty or tasks for periodic checks
-├── MEMORY.md              # Long-term memory template
-├── openclaw-channels.template.json5
-├── openclaw-config.json   # agents.list: id, workspace, model, identity
+├── workflow-<agent_id>/
+│   ├── IDENTITY.md        # Name, Role, Emoji, Strengths, Style
+│   └── SOUL.md            # Personality, behavior, style
+├── AGENTS.md              # Team overview, routing hints, detailed profiles
 ├── README.md
-├── SOUL.md                # Pack defaults (shared principles)
-├── TOOLS.md               # Environment notes
-├── USER.md                # User profile template
-├── office/                # (optional, when layout configured)
+├── openclaw-agents-to-merge.json   # Copy into openclaw.json under "agents" key
+├── office/                # Layout, map, plan templates (when configured)
 │   ├── layout.toon
-│   └── map/
-│       ├── officemap.tmx
-│       ├── Room_Builder_Office.tsx
-│       ├── Modern_Office.tsx
-│       └── *.png
-├── plans/templates/       # (optional)
-└── runtime/               # (optional)
+│   ├── map/
+│   │   ├── officemap.tmx
+│   │   ├── Room_Builder_Office.tsx
+│   │   ├── Modern_Office.tsx
+│   │   └── *.png
+│   └── plans/
+│       └── templates/
+│           └── template_*.toon
+└── runtime/
     ├── config.toon
     └── .env.example
 ```
 
+## office/layout.toon
+
+Full OfficeLayout serialized with all settings:
+- `width`, `height` – grid dimensions
+- `layers` – floor + furniture tiles
+- `roomMask`, `floorMaterial` – preserved for re-editing (room-builder)
+- `spots` – desk, chair, meeting, closet with optional `label` per spot
+- `collision` – blocked tiles for pathfinding
+- `camera` – viewport position and zoom
+
 ## Per-Agent Content
 
-Each agent gets `agents/<id>/IDENTITY.md` and `agents/<id>/SOUL.md` derived from:
+Each agent gets `workflow-<id>/IDENTITY.md` and `workflow-<id>/SOUL.md` derived from:
 
 - **Agent fields**: `name`, `role`, `tone`, `spots`, `tools_allowed`, `deps`
 - **Optional**: `emoji`, `theme` (for identity customization)
 
-## openclaw-config.json
+## openclaw-agents-to-merge.json
+
+Copy this block into your `openclaw.json` under the `agents` key. Do not overwrite your existing config.
 
 ```json
 {
@@ -47,7 +54,7 @@ Each agent gets `agents/<id>/IDENTITY.md` and `agents/<id>/SOUL.md` derived from
     "list": [
       {
         "id": "helper",
-        "workspace": "./agents/helper",
+        "workspace": "./workflow-helper",
         "model": "anthropic/claude-sonnet-4-20250514",
         "identity": { "name": "Helper", "theme": "...", "emoji": "🤖" }
       }

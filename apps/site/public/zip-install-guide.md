@@ -13,16 +13,15 @@ The ZIP file has been downloaded. Follow the steps below based on your situation
 2. **Extract the ZIP to a different folder** (e.g. your desktop), **not** directly into `.openclaw`. Do not extract on top of your existing folder – it may overwrite your plans and data.
 
 3. **From the extracted `openclaw-office` folder, copy only:**
-   - `agents/` – new or updated agent workspaces (IDENTITY.md, SOUL.md per agent)
-   - `AGENTS.md`, `openclaw-config.json`, `SOUL.md` – team and pack config
-   - `office/` – new office layout (if present)
+   - `workflow-<id>/` – new or updated agent workspaces (IDENTITY.md, SOUL.md per agent)
+   - `AGENTS.md` – team and pack config
+   - `office/` – layout, map, plan templates (if present)
 
-4. **Leave in place – do not overwrite:**
-   - `plans/` – your existing plans
-   - `MEMORY.md`, `USER.md` – your runtime data
+4. **Merge agents manually** – copy the `agents` block from `openclaw-agents-to-merge.json` into your `openclaw.json`. Do not overwrite your existing config — merge the `agents.list` array.
+
+5. **Leave in place – do not overwrite:**
+   - Your existing plans and runtime data
    - Any other files you've customized
-
-5. **Merge config carefully** – if you have custom `openclaw-config.json`, merge new agents into it instead of replacing the whole file.
 
 6. **Close and reopen OpenClaw.**
 
@@ -32,10 +31,11 @@ The ZIP file has been downloaded. Follow the steps below based on your situation
 
 1. **Find the `.openclaw` folder** on your computer. It may be hidden – enable "show hidden files" in your system settings if needed.
 
-2. **Extract the ZIP file** (double-click it). You will get an `openclaw-office` folder (AgentPack layout, matches free-sample):
-   - `agents/<id>/` – IDENTITY.md, SOUL.md per agent
-   - `AGENTS.md`, `openclaw-config.json`, `README.md`, `SOUL.md`, `USER.md`, `TOOLS.md`, `MEMORY.md`, `HEARTBEAT.md`
-   - `office/` – office layout and TMX map (when configured)
+2. **Extract the ZIP file** (double-click it). You will get an `openclaw-office` folder:
+   - `workflow-<id>/` – IDENTITY.md, SOUL.md per agent
+   - `AGENTS.md`, `README.md`
+   - `openclaw-agents-to-merge.json` – copy this block into your `openclaw.json` under the `agents` key
+   - `office/` – layout, map, plan templates (when configured)
    - `runtime/` – config and environment setup
 
 3. **Copy the entire `openclaw-office` folder** into `.openclaw` – or use it as your OpenClaw workspace root.

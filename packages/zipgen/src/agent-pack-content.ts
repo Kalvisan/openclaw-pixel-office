@@ -67,7 +67,7 @@ export function agentToSoulMd(a: Agent): string {
 
   const workingStyleIntro =
     a.roleWorkingStyle ??
-    "Follow pack defaults in root SOUL.md, then specialize based on your role.";
+    "Specialize based on your role and responsibilities.";
 
   return `# SOUL — ${a.name}
 
@@ -97,5 +97,44 @@ ${workingStyleIntro}
 
 - Default tone: ${tone}
 - Work primarily from: ${spots}
+`;
+}
+
+/** Generate detailed agent block for AGENTS.md — helps OpenClaw route to the right agent */
+export function agentToAgentsMdBlock(a: Agent): string {
+  const emoji = a.emoji ?? "🤖";
+  const strengths = getStrengths(a);
+  const roleDesc =
+    a.roleSummary ??
+    `${a.role} is responsible for driving high‑quality outcomes in their domain.`;
+  const responsibilities =
+    a.roleResponsibilities && a.roleResponsibilities.length > 0
+      ? a.roleResponsibilities
+      : [
+          "Take end‑to‑end ownership of tasks in your lane",
+          "Ask clarifying questions when requirements are ambiguous",
+          "Collaborate respectfully with other agents and the user",
+        ];
+  const tools = (a.tools_allowed ?? []).join(", ") || "none";
+  const reportsTo = (a.deps ?? []).length ? (a.deps ?? []).join(", ") : "user";
+  const spots = (a.spots ?? []).join(", ") || "desk";
+  const tone = a.tone ?? "professional";
+
+  const useWhen = `Tasks need ${a.role} expertise: ${responsibilities.slice(0, 2).join("; ").toLowerCase()}`;
+
+  return `### ${emoji} ${a.name} — ${a.role}
+
+**Workspace:** \`workflow-${a.id}/\`
+
+**What they do:** ${roleDesc}
+
+**Use this agent when:** ${useWhen}
+
+**Strengths:** ${strengths.join("; ")}
+
+**Responsibilities:**
+${responsibilities.map((r) => `- ${r}`).join("\n")}
+
+**Tools:** ${tools} | **Tone:** ${tone} | **Reports to:** ${reportsTo} | **Location:** ${spots}
 `;
 }

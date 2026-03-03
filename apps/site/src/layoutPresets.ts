@@ -77,10 +77,10 @@ export function cloneLayout(layout: OfficeLayout): OfficeLayout {
     layers,
     spots: layout.spots
       ? {
-          desk: [...(layout.spots.desk ?? [])],
-          chair: [...(layout.spots.chair ?? [])],
-          meeting: [...(layout.spots.meeting ?? [])],
-          closet: [...(layout.spots.closet ?? [])],
+          desk: (layout.spots.desk ?? []).map((s) => ({ ...s })),
+          chair: (layout.spots.chair ?? []).map((s) => ({ ...s })),
+          meeting: (layout.spots.meeting ?? []).map((s) => ({ ...s })),
+          closet: (layout.spots.closet ?? []).map((s) => ({ ...s })),
         }
       : EMPTY_SPOTS,
   };
@@ -92,6 +92,9 @@ export function cloneLayout(layout: OfficeLayout): OfficeLayout {
   }
   if (layout.collision?.blocked?.length) {
     result.collision = { blocked: layout.collision.blocked.map((b) => ({ ...b })) };
+  }
+  if (layout.camera) {
+    result.camera = { ...layout.camera };
   }
   return result;
 }

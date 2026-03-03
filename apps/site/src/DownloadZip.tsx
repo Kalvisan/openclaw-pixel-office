@@ -5,7 +5,6 @@ import type { Agent } from "@openclaw-office/core";
 import type { OfficeLayout } from "@openclaw-office/zipgen";
 import { IconDownload, IconCheck, IconClose } from "./Icons";
 import { ASSETS, ZIP_INSTALL_GUIDE_URL } from "./assets";
-import { normalizeLayoutForExport } from "./layoutPresets";
 import { BUILTIN_ROLES } from "./roles";
 import type { RoleProfile } from "./roles";
 
@@ -94,9 +93,7 @@ export function DownloadZip({ agents, customRoles = [], officeLayout }: Props) {
       const enrichedAgents = enrichAgentsWithRoleProfiles(agents, customRoles);
       const zip = generateZip({
         agents: enrichedAgents,
-        officeLayout: officeLayout
-          ? normalizeLayoutForExport(officeLayout)
-          : undefined,
+        officeLayout: officeLayout ?? undefined,
         mapAssets,
       });
       const blob = new Blob([zip as BlobPart], { type: "application/zip" });

@@ -31,7 +31,7 @@ pnpm dev:site
 
 Open **http://localhost:5173**. Pick a team preset, edit agents, click **Generate & Download**. Then:
 
-- **If you have OpenClaw with data:** Backup `.openclaw`, extract the ZIP elsewhere. Copy only `agents/`, `AGENTS.md`, `openclaw-config.json`, `SOUL.md`, `office/` into `.openclaw`. Do not overwrite `plans/`, `MEMORY.md`, `USER.md`.
+- **If you have OpenClaw with data:** Backup `.openclaw`, extract the ZIP elsewhere. Copy only `workflow-*/`, `AGENTS.md`, `office/` into `.openclaw`. Merge `openclaw-agents-to-merge.json` into your `openclaw.json` manually. Do not overwrite your existing plans and data.
 - **If OpenClaw is new:** Extract the ZIP and copy the whole `openclaw-office` folder into `.openclaw`.
 
 Restart OpenClaw. You only need the builder when creating or changing agents.

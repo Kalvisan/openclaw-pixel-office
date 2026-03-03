@@ -6,34 +6,43 @@
 import { strToU8, zipSync, type Zippable } from "fflate";
 import { serialize } from "@openclaw-office/toon";
 import type { Agent } from "@openclaw-office/core";
-import { agentToIdentityMd, agentToSoulMd } from "./agent-pack-content";
-import {
-  SOUL_PACK_DEFAULTS,
-  USER_MD,
-  TOOLS_MD,
-  MEMORY_MD,
-  HEARTBEAT_MD,
-  OPENCLAW_CHANNELS_TEMPLATE,
-} from "./agent-pack-templates";
+import { agentToIdentityMd, agentToSoulMd, agentToAgentsMdBlock } from "./agent-pack-content";
+import { README_MD } from "./agent-pack-templates";
 
 /** Floor material for room-builder system */
 export type FloorMaterialName = "purpleStone" | "grayTile" | "brownBrick" | "paleLilac";
+
+/** Spot position with optional label (for Office Design export) */
+export interface SpotItem {
+  x: number;
+  y: number;
+  label?: string | null;
+}
+
+/** Camera/viewport settings */
+export interface OfficeCamera {
+  x: number;
+  y: number;
+  zoom: number;
+}
 
 /** Multi-layer layout: layer 0 = floor (rb_* only), layers 1+ = objects (in_*) stacked */
 export interface OfficeLayout {
   width: number;
   height: number;
-  /** Room mask: 1 = floor/inside, 0 = wall/outside. Convert to layers before passing to zipgen. */
+  /** Room mask: 1 = floor/inside, 0 = wall/outside. Preserved for re-editing. */
   roomMask?: number[][];
-  /** Floor material when using roomMask */
+  /** Floor material when using roomMask. Preserved for re-editing. */
   floorMaterial?: FloorMaterialName;
   /** @deprecated Use layers. Kept for backward compat - migrated to layers on load */
   tiles?: string[][];
   /** layers[0] = floor (rb_* walls/floors), layers[1+] = furniture/objects (in_*) */
   layers?: string[][][];
-  spots?: Record<string, { x: number; y: number }[]>;
+  spots?: Record<string, SpotItem[]>;
   /** Blocked tiles for pathfinding (grid coords). From Office Design collision.blocked. */
   collision?: { blocked: { x: number; y: number }[] };
+  /** Camera/viewport position and zoom. Preserved from Office Design. */
+  camera?: OfficeCamera;
 }
 
 /** Office Design JSON (Room Builder export v4) – sparse tiles, world coords */
@@ -103,7 +112,7 @@ export function officeDesignJsonToOfficeLayout(json: OfficeDesignJson): OfficeLa
 
   // Empty floor cells stay empty (render as black/nothing)
 
-  const spots: Record<string, { x: number; y: number }[]> = {
+  const spots: Record<string, SpotItem[]> = {
     desk: [],
     chair: [],
     meeting: [],
@@ -119,7 +128,7 @@ export function officeDesignJsonToOfficeLayout(json: OfficeDesignJson): OfficeLa
     const key = spotMap[type] ?? "chair";
     const { x, y } = toGrid(item.x, item.y);
     if (y >= 0 && y < height && x >= 0 && x < width) {
-      spots[key].push({ x, y });
+      spots[key].push({ x, y, label: item.label ?? undefined });
     }
   }
 
@@ -127,12 +136,17 @@ export function officeDesignJsonToOfficeLayout(json: OfficeDesignJson): OfficeLa
     blocked: (json.collision?.blocked ?? []).map((b) => toGrid(b.x, b.y)),
   };
 
+  const camera = json.camera
+    ? { x: json.camera.x, y: json.camera.y, zoom: json.camera.zoom }
+    : undefined;
+
   return {
     width,
     height,
     layers: [floor, ...objectLayers],
     spots,
     collision: collision.blocked.length > 0 ? collision : undefined,
+    camera,
   };
 }
 
@@ -170,7 +184,7 @@ export function officeLayoutToOfficeDesignJson(layout: OfficeLayout): OfficeDesi
       },
     },
     world: { infinite: true, bounds: { minX, maxX, minY, maxY } },
-    camera: { x: width / 2, y: height / 2, zoom: 2 },
+    camera: layout.camera ?? { x: width / 2, y: height / 2, zoom: 2 },
     layers: [],
     collision: { blocked: [] },
     spots: { items: [] },
@@ -235,7 +249,7 @@ export function officeLayoutToOfficeDesignJson(layout: OfficeLayout): OfficeDesi
         x,
         y,
         type: spotTypeMap[key] ?? "sit",
-        label: null,
+        label: p.label ?? null,
       });
     }
   }
@@ -406,26 +420,37 @@ export interface ZipConfig {
   mapAssets?: { roomPng: Uint8Array; interiorsPng: Uint8Array };
 }
 
-/** Default model for openclaw.json */
+/** Default model for agent config */
 const DEFAULT_MODEL = "anthropic/claude-sonnet-4-20250514";
 
 function agentsToAgentsMd(agents: Agent[]): string {
   const lines = [
     "# AGENTS.md — Team Overview",
     "",
-    "| Agent | Role | Emoji |",
-    "|-------|------|-------|",
-    ...agents.map((a) => `| ${a.name} | ${a.role} | ${a.emoji ?? "🤖"} |`),
+    "Use this file to understand each agent and route tasks correctly. Each agent has `workflow-<id>/` with IDENTITY.md and SOUL.md.",
     "",
+    "## Quick reference",
+    "",
+    "| Agent | Role | Emoji | Use when |",
+    "|-------|------|-------|----------|",
+    ...agents.map((a) => {
+      const hint =
+        a.roleSummary?.slice(0, 45) ?? `tasks need ${a.role.toLowerCase()} expertise`;
+      return `| ${a.name} | ${a.role} | ${a.emoji ?? "🤖"} | ${hint}${hint.length >= 45 ? "…" : ""} |`;
+    }),
+    "",
+    "## Detailed agent profiles",
+    "",
+    ...agents.map((a) => agentToAgentsMdBlock(a) + "\n"),
     "## Setup",
     "",
-    "Each agent has its own workspace under `workflow-<id>/` with IDENTITY.md and SOUL.md.",
-    "Edit `openclaw.json` to change models or add agents.",
+    "Copy `openclaw-agents-to-merge.json` into your `openclaw.json` under the `agents` key.",
   ];
   return lines.join("\n");
 }
 
-function agentsToOpenclawConfig(agents: Agent[]): string {
+/** Agents config for user to merge into their openclaw.json (does not overwrite) */
+function agentsToMergeJson(agents: Agent[]): string {
   const list = agents.map((a) => ({
     id: a.id,
     name: a.name,
@@ -440,37 +465,11 @@ function agentsToOpenclawConfig(agents: Agent[]): string {
   return JSON.stringify({ agents: { list } }, null, 2);
 }
 
-const README_MD = `# OpenClaw Agent Pack
-
-Generated by OpenClaw Pixel Office.
-
-## Quick Start
-
-1. Extract this zip
-2. Edit \`USER.md\` with your profile
-3. Edit \`openclaw.json\` if needed (models, endpoints)
-4. Run your OpenClaw runtime with this pack as workspace
-
-## Structure (free-sample layout)
-
-- \`agents/<id>/\` — IDENTITY.md, SOUL.md per agent
-- \`AGENTS.md\` — Team overview
-- \`SOUL.md\` — Pack defaults (shared principles)
-- \`openclaw-config.json\` — Agent list, models, workspaces
-- \`USER.md\`, \`TOOLS.md\`, \`MEMORY.md\`, \`HEARTBEAT.md\` — Templates
-
-## Office Layout (optional)
-
-If this pack includes \`office/\`, it contains:
-- \`layout.toon\` — Office layout with spots
-- \`map/\` — TMX map + tilesets for 2D office visualization (PixiJS, Phaser, etc.)
-`;
-
 export function generateZip(config: ZipConfig): Uint8Array {
   const files: Zippable = {};
   const prefix = "";
 
-  // Agents — AgentPack format: agents/<id>/IDENTITY.md, agents/<id>/SOUL.md
+  // Agents — workflow-<agent_id>/ with IDENTITY.md and SOUL.md
   for (const agent of config.agents) {
     const workspaceDir = `workflow-${agent.id}`;
     const agentPrefix = `${workspaceDir}/`;
@@ -478,29 +477,16 @@ export function generateZip(config: ZipConfig): Uint8Array {
     files[`${agentPrefix}SOUL.md`] = strToU8(agentToSoulMd(agent));
   }
 
-  // Root — free-sample layout
+  // Root — agent pack layout
   files[`${prefix}AGENTS.md`] = strToU8(agentsToAgentsMd(config.agents));
-  files[`${prefix}openclaw.json`] = strToU8(agentsToOpenclawConfig(config.agents));
   files[`${prefix}README.md`] = strToU8(README_MD);
-  files[`${prefix}SOUL.md`] = strToU8(SOUL_PACK_DEFAULTS);
-  files[`${prefix}USER.md`] = strToU8(USER_MD);
-  files[`${prefix}TOOLS.md`] = strToU8(TOOLS_MD);
-  files[`${prefix}MEMORY.md`] = strToU8(MEMORY_MD);
-  files[`${prefix}HEARTBEAT.md`] = strToU8(HEARTBEAT_MD);
-  files[`${prefix}openclaw-channels.template.json5`] = strToU8(OPENCLAW_CHANNELS_TEMPLATE);
+  files[`${prefix}openclaw-agents-to-merge.json`] = strToU8(agentsToMergeJson(config.agents));
 
-  // Plan templates (optional)
-  if (config.planTemplates?.length) {
-    for (let i = 0; i < config.planTemplates.length; i++) {
-      const t = config.planTemplates[i];
-      files[`${prefix}plans/templates/template_${i}.toon`] = strToU8(serialize(t));
-    }
-  }
-
-  // Office layout (optional)
+  // Office: layout + map + plan templates (all in one place)
+  const officePrefix = `${prefix}office/`;
   if (config.officeLayout) {
-    files[`${prefix}office/layout.toon`] = strToU8(serialize(config.officeLayout));
-    const mapPrefix = `${prefix}office/map/`;
+    files[`${officePrefix}layout.toon`] = strToU8(serialize(config.officeLayout));
+    const mapPrefix = `${officePrefix}map/`;
     files[`${mapPrefix}officemap.tmx`] = strToU8(officeLayoutToTMX(config.officeLayout));
     files[`${mapPrefix}Room_Builder_Office.tsx`] = strToU8(ROOM_TSX);
     files[`${mapPrefix}Modern_Office.tsx`] = strToU8(MODERN_OFFICE_TSX);
@@ -509,8 +495,14 @@ export function generateZip(config: ZipConfig): Uint8Array {
       files[`${mapPrefix}Modern_Office_16x16.png`] = config.mapAssets.interiorsPng;
     }
   }
+  if (config.planTemplates?.length) {
+    for (let i = 0; i < config.planTemplates.length; i++) {
+      const t = config.planTemplates[i];
+      files[`${officePrefix}plans/templates/template_${i}.toon`] = strToU8(serialize(t));
+    }
+  }
 
-  // Runtime config (optional, for pixel-office runtime)
+  // Runtime config (for pixel-office)
   const configToon = config.runtimeConfig ?? {
     openclaw_url: "http://localhost:3000",
     feature_flags: {},
