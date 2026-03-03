@@ -1,10 +1,12 @@
+import { useState } from "react";
 import type { Agent } from "@openclaw-office/core";
 import { CharacterAvatar } from "./CharacterAvatar";
 import { CharacterEditor } from "./CharacterEditor";
-import { IconTeam, IconLink, IconPlus } from "./Icons";
+import { IconTeam, IconLink, IconPlus, IconTrash, IconRefresh, IconClose } from "./Icons";
 import { DEFAULT_CHARACTER } from "./characterAssets";
 import type { RoleProfile } from "./roles";
 import { BUILTIN_ROLES } from "./roles";
+import { RoleModal } from "./RoleModal";
 
 interface PresetItem {
   id: string;
@@ -19,17 +21,30 @@ interface Props {
   presetPresets?: PresetItem[];
   presetSelected?: string | null;
   onPresetSelect?: (id: string) => void;
+  onReset?: () => void;
+  customRoles?: RoleProfile[];
+  onCustomRolesChange?: (roles: RoleProfile[]) => void;
 }
 
 const CUSTOM_PRESET_ID = "__custom__";
+const CREATE_ROLE_OPTION = "__create_role__";
 
-function getAllRoles(): RoleProfile[] {
-  return BUILTIN_ROLES;
-}
+export function AgentEditor({ agents, selectedId, onSelect, onChange, presetPresets, presetSelected, onPresetSelect, onReset, customRoles = [], onCustomRolesChange }: Props) {
+  const [showRoleModal, setShowRoleModal] = useState(false);
+  const [roleModalEdit, setRoleModalEdit] = useState<RoleProfile | null>(null);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
-export function AgentEditor({ agents, selectedId, onSelect, onChange, presetPresets, presetSelected, onPresetSelect }: Props) {
-  const allRoles = getAllRoles();
-  void allRoles;
+  const getRoleProfile = (roleId: string): RoleProfile | undefined =>
+    BUILTIN_ROLES.find((r) => r.id === roleId) ?? customRoles.find((r) => r.id === roleId);
+
+  const applyRoleToAgent = (idx: number, profile: RoleProfile) => {
+    update(idx, {
+      role: profile.name,
+      roleId: profile.id,
+      tone: profile.defaultTone,
+      tools_allowed: [...(profile.defaultTools ?? [])],
+    });
+  };
   const update = (idx: number, patch: Partial<Agent>) => {
     const next = [...agents];
     next[idx] = { ...next[idx], ...patch };
@@ -58,6 +73,7 @@ export function AgentEditor({ agents, selectedId, onSelect, onChange, presetPres
       id,
       name: "New Member",
       role: "Role",
+      roleId: undefined,
       daily_checklist: [],
       tools_allowed: [],
       tone: "professional",
@@ -84,17 +100,30 @@ export function AgentEditor({ agents, selectedId, onSelect, onChange, presetPres
             <IconTeam size={14} /> Team
           </h2>
           {presetPresets && presetPresets.length > 0 && onPresetSelect && (
-            <select
-              className="preset-select"
-              value={presetSelected ?? CUSTOM_PRESET_ID}
-              onChange={handlePresetChange}
-              aria-label="Team preset"
-            >
-              {presetPresets.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-              <option value={CUSTOM_PRESET_ID}>Create your own</option>
-            </select>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <select
+                className="preset-select"
+                value={presetSelected ?? CUSTOM_PRESET_ID}
+                onChange={handlePresetChange}
+                aria-label="Team preset"
+              >
+                {presetPresets.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+                <option value={CUSTOM_PRESET_ID}>Create your own</option>
+              </select>
+              {onReset && (
+                <button
+                  type="button"
+                  className="btn-refresh"
+                  onClick={() => setShowResetConfirm(true)}
+                  title="Clear saved data and reset to default"
+                  aria-label="Reset"
+                >
+                  <IconRefresh size={16} />
+                </button>
+              )}
+            </div>
           )}
         </div>
         <p className="section-hint">Tap an agent to edit</p>
@@ -136,7 +165,29 @@ export function AgentEditor({ agents, selectedId, onSelect, onChange, presetPres
 
       {selected && selectedIdx >= 0 && (
         <div className="game-panel editor-detail" style={{ padding: 20 }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <div className="editor-detail-header">
+            <h3 className="editor-detail-title" style={{ fontSize: "1.1rem", color: "var(--game-gold)", margin: 0, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>
+              {selected.name}
+            </h3>
+            <button
+              type="button"
+              className="btn-remove"
+              onClick={() => {
+                const next = agents.filter((a) => a.id !== selected.id);
+                onChange(next);
+                if (next.length === 0) {
+                  onSelect("");
+                } else if (!next.find((a) => a.id === selectedId)) {
+                  onSelect(next[0].id);
+                }
+              }}
+              title="Remove from team"
+            >
+              <IconTrash size={14} />
+              <span>Remove</span>
+            </button>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 16 }}>
             <div className="form-field">
               <label className="form-label">ID</label>
               <input
@@ -155,11 +206,56 @@ export function AgentEditor({ agents, selectedId, onSelect, onChange, presetPres
             </div>
             <div className="form-field">
               <label className="form-label">Role</label>
-              <input
-                className="game-input"
-                value={selected.role}
-                onChange={(e) => update(selectedIdx, { role: e.target.value })}
-              />
+              <select
+                className="preset-select form-select"
+                value={selected.roleId ?? ""}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === CREATE_ROLE_OPTION) {
+                    setRoleModalEdit(null);
+                    setShowRoleModal(true);
+                    return;
+                  }
+                  const profile = getRoleProfile(val);
+                  if (profile) {
+                    applyRoleToAgent(selectedIdx, profile);
+                  } else {
+                    update(selectedIdx, { role: val || selected.role, roleId: undefined });
+                  }
+                }}
+              >
+                <option value="">— Custom —</option>
+                <optgroup label="Predefined">
+                  {BUILTIN_ROLES.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}
+                    </option>
+                  ))}
+                </optgroup>
+                {customRoles.length > 0 && (
+                  <optgroup label="Custom">
+                    {customRoles.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                <option value={CREATE_ROLE_OPTION}>+ Create custom role...</option>
+              </select>
+              {selected.roleId?.startsWith("custom_") && getRoleProfile(selected.roleId) && (
+                <button
+                  type="button"
+                  className="download-hint-link"
+                  style={{ marginTop: 8, fontSize: "0.9rem" }}
+                  onClick={() => {
+                    setRoleModalEdit(getRoleProfile(selected.roleId!)!);
+                    setShowRoleModal(true);
+                  }}
+                >
+                  Edit custom role
+                </button>
+              )}
             </div>
             <div className="form-field">
               <label className="form-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -194,21 +290,74 @@ export function AgentEditor({ agents, selectedId, onSelect, onChange, presetPres
                 onChange={(character) => update(selectedIdx, { character })}
               />
             </div>
-            <div className="form-field">
+          </div>
+        </div>
+      )}
+
+      {showRoleModal && (
+        <RoleModal
+          initialRole={roleModalEdit}
+          customRoles={customRoles}
+          onSave={(role) => {
+            const exists = customRoles.some((r) => r.id === role.id);
+            if (exists) {
+              onCustomRolesChange?.(customRoles.map((r) => (r.id === role.id ? role : r)));
+            } else {
+              onCustomRolesChange?.([...customRoles, role]);
+            }
+            if (selected && selectedIdx >= 0) {
+              applyRoleToAgent(selectedIdx, role);
+            }
+            setShowRoleModal(false);
+            setRoleModalEdit(null);
+          }}
+          onClose={() => {
+            setShowRoleModal(false);
+            setRoleModalEdit(null);
+          }}
+        />
+      )}
+
+      {showResetConfirm && (
+        <div
+          className="download-modal-overlay"
+          onClick={() => setShowResetConfirm(false)}
+          onKeyDown={(e) => e.key === "Escape" && setShowResetConfirm(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="reset-modal-title"
+          tabIndex={-1}
+        >
+          <div className="download-modal" style={{ maxWidth: 400 }} onClick={(e) => e.stopPropagation()}>
+            <div className="download-modal-header">
+              <h2 id="reset-modal-title" className="game-font-title">Reset all data?</h2>
               <button
                 type="button"
-                className="game-button danger"
+                className="download-modal-close"
+                onClick={() => setShowResetConfirm(false)}
+                aria-label="Close"
+              >
+                <IconClose size={20} />
+              </button>
+            </div>
+            <div className="download-modal-body">
+              <p className="download-modal-intro">
+                This will clear all saved data from localStorage (team, custom roles) and reset to the default Virtual IT Agency preset. This cannot be undone.
+              </p>
+            </div>
+            <div className="role-modal-footer">
+              <button type="button" className="game-btn-secondary" onClick={() => setShowResetConfirm(false)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="game-btn"
                 onClick={() => {
-                  const next = agents.filter((a) => a.id !== selected.id);
-                  onChange(next);
-                  if (next.length === 0) {
-                    onSelect("");
-                  } else if (!next.find((a) => a.id === selectedId)) {
-                    onSelect(next[0].id);
-                  }
+                  onReset?.();
+                  setShowResetConfirm(false);
                 }}
               >
-                Remove from team
+                Reset
               </button>
             </div>
           </div>

@@ -31,6 +31,10 @@ export function agentToIdentityMd(a: Agent): string {
     ? (a.deps ?? []).map((id) => `${id}`).join(", ")
     : "(reports directly to you)";
 
+  const roleDescription =
+    a.roleSummary ??
+    `${a.role} is responsible for driving high‑quality outcomes in their domain, owning day‑to‑day execution and collaborating with the rest of the team.`;
+
   return `# ${a.name}
 
 - **Role:** ${a.role}
@@ -42,7 +46,7 @@ export function agentToIdentityMd(a: Agent): string {
 
 ## What this agent does
 
-${a.role} is responsible for driving high‑quality outcomes in their domain, owning day‑to‑day execution and collaborating with the rest of the team.
+${roleDescription}
 `;
 }
 
@@ -52,6 +56,18 @@ export function agentToSoulMd(a: Agent): string {
   const deps = (a.deps ?? []).length > 0 ? (a.deps ?? []).join(", ") : "none";
   const spots = (a.spots ?? []).join(", ") || "desk";
   const tools = (a.tools_allowed ?? []).join(", ") || "none";
+
+  const responsibilities =
+    a.roleResponsibilities && a.roleResponsibilities.length > 0
+      ? a.roleResponsibilities.map((r) => `- ${r}`).join("\n")
+      : `- Take end‑to‑end ownership of tasks in your lane.
+- Ask clarifying questions when requirements are ambiguous.
+- Keep notes of key decisions and rationale.
+- Collaborate respectfully with other agents and the user.`;
+
+  const workingStyleIntro =
+    a.roleWorkingStyle ??
+    "Follow pack defaults in root SOUL.md, then specialize based on your role.";
 
   return `# SOUL — ${a.name}
 
@@ -67,10 +83,7 @@ Your job is to own your domain, make clear recommendations, and keep your manage
 
 ## Responsibilities
 
-- Take end‑to‑end ownership of tasks in your lane.
-- Ask clarifying questions when requirements are ambiguous.
-- Keep notes of key decisions and rationale.
-- Collaborate respectfully with other agents and the user.
+${responsibilities}
 
 ## Tools & boundaries
 
@@ -80,8 +93,9 @@ Your job is to own your domain, make clear recommendations, and keep your manage
 
 ## Working style
 
+${workingStyleIntro}
+
 - Default tone: ${tone}
 - Work primarily from: ${spots}
-- Follow pack defaults in root SOUL.md, then specialize based on your role.
 `;
 }

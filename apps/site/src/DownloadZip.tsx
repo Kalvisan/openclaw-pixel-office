@@ -6,14 +6,34 @@ import type { OfficeLayout } from "@openclaw-office/zipgen";
 import { IconDownload, IconCheck, IconClose } from "./Icons";
 import { ASSETS, ZIP_INSTALL_GUIDE_URL } from "./assets";
 import { normalizeLayoutForExport } from "./layoutPresets";
-
+import { BUILTIN_ROLES } from "./roles";
+import type { RoleProfile } from "./roles";
 
 interface Props {
   agents: Agent[];
+  customRoles?: RoleProfile[];
   officeLayout?: OfficeLayout | null;
 }
 
-export function DownloadZip({ agents, officeLayout }: Props) {
+function enrichAgentsWithRoleProfiles(agents: Agent[], customRoles: RoleProfile[]): Agent[] {
+  const roleMap = new Map<string, RoleProfile>();
+  for (const r of BUILTIN_ROLES) roleMap.set(r.id, r);
+  for (const r of customRoles) roleMap.set(r.id, r);
+
+  return agents.map((a) => {
+    if (!a.roleId) return a;
+    const profile = roleMap.get(a.roleId);
+    if (!profile) return a;
+    return {
+      ...a,
+      roleSummary: profile.summary,
+      roleResponsibilities: profile.responsibilities,
+      roleWorkingStyle: profile.workingStyle,
+    };
+  });
+}
+
+export function DownloadZip({ agents, customRoles = [], officeLayout }: Props) {
   const [downloaded, setDownloaded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -71,8 +91,9 @@ export function DownloadZip({ agents, officeLayout }: Props) {
           interiorsPng: interiorBlob,
         };
       }
+      const enrichedAgents = enrichAgentsWithRoleProfiles(agents, customRoles);
       const zip = generateZip({
-        agents,
+        agents: enrichedAgents,
         officeLayout: officeLayout
           ? normalizeLayoutForExport(officeLayout)
           : undefined,
@@ -90,7 +111,7 @@ export function DownloadZip({ agents, officeLayout }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [agents, officeLayout]);
+  }, [agents, customRoles, officeLayout]);
 
   return (
     <div className="download-section">

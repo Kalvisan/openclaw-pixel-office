@@ -34,6 +34,15 @@ export function LayoutPreview({ layout }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [sheetImages, setSheetImages] = useState<Record<string, HTMLImageElement>>({});
   const [containerSize, setContainerSize] = useState<{ w: number; h: number } | null>(null);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [showCollisions, setShowCollisions] = useState(false);
+  const [showSpots, setShowSpots] = useState(false);
+  const panStartRef = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
+
+  useEffect(() => {
+    setPan({ x: 0, y: 0 });
+  }, [layout]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -103,6 +112,7 @@ export function LayoutPreview({ layout }: Props) {
     ctx.imageSmoothingQuality = "low";
 
     const DISPLAY_SCALE = 2;
+    const ZOOM_FACTOR = 1.4; // Slight zoom for readability; use pan to navigate
 
     const roomRows = getSheetRows("room");
     const roomCols = getSheetCols("room");
@@ -139,13 +149,15 @@ export function LayoutPreview({ layout }: Props) {
     const contentW = effectiveWidth * TILE_SIZE * DISPLAY_SCALE;
     const contentH = effectiveHeight * TILE_SIZE * DISPLAY_SCALE;
 
-    const canvasW = containerSize ? Math.max(1, Math.floor(containerSize.w)) : contentW;
-    const canvasH = containerSize ? Math.max(1, Math.floor(containerSize.h)) : contentH;
-    const scale = Math.min(canvasW / contentW, canvasH / contentH);
-    const drawW = contentW * scale;
-    const drawH = contentH * scale;
-    const padX = (canvasW - drawW) / 2;
-    const padY = (canvasH - drawH) / 2;
+    // Canvas keeps content aspect ratio (square tiles); fit into container
+    const containerW = containerSize ? Math.max(1, Math.floor(containerSize.w)) : contentW;
+    const containerH = containerSize ? Math.max(1, Math.floor(containerSize.h)) : contentH;
+    const fitScale = Math.min(containerW / contentW, containerH / contentH);
+    const scale = fitScale * ZOOM_FACTOR;
+    const canvasW = Math.max(1, Math.floor(contentW * scale));
+    const canvasH = Math.max(1, Math.floor(contentH * scale));
+    const padX = (canvasW - contentW * scale) / 2;
+    const padY = (canvasH - contentH * scale) / 2;
 
     canvas.width = canvasW;
     canvas.height = canvasH;
@@ -154,7 +166,7 @@ export function LayoutPreview({ layout }: Props) {
     ctx.fillRect(0, 0, canvasW, canvasH);
 
     ctx.save();
-    ctx.translate(padX, padY);
+    ctx.translate(padX + pan.x, padY + pan.y);
     ctx.scale(scale, scale);
     ctx.scale(DISPLAY_SCALE, DISPLAY_SCALE);
     const floorLayer = layout?.layers?.[0];
@@ -191,7 +203,7 @@ export function LayoutPreview({ layout }: Props) {
     ctx.restore();
 
     ctx.save();
-    ctx.translate(padX, padY);
+    ctx.translate(padX + pan.x, padY + pan.y);
     ctx.scale(scale, scale);
     ctx.scale(DISPLAY_SCALE, DISPLAY_SCALE);
     for (let li = 0; li < objectLayers.length; li++) {
@@ -208,29 +220,85 @@ export function LayoutPreview({ layout }: Props) {
     }
     ctx.restore();
 
-    const spotColors: Record<string, string> = {
-      desk: "rgba(100, 180, 255, 0.4)",
-      chair: "rgba(100, 255, 150, 0.4)",
-      meeting: "rgba(255, 200, 100, 0.4)",
-      closet: "rgba(180, 100, 255, 0.4)",
-    };
-    ctx.save();
-    ctx.translate(padX, padY);
-    ctx.scale(scale, scale);
-    ctx.scale(DISPLAY_SCALE, DISPLAY_SCALE);
-    for (const [spotType, positions] of Object.entries(spots) as [
-      string,
-      { x: number; y: number }[],
-    ][]) {
-      const color = spotColors[spotType];
-      for (const { x, y } of positions) {
-        const dx = Math.floor(x) * TILE_SIZE;
-        const dy = Math.floor(y) * TILE_SIZE;
-        ctx.fillStyle = color;
-        ctx.fillRect(dx, dy, TILE_SIZE, TILE_SIZE);
+    // Collisions: red border + semi-transparent fill on blocked tiles
+    let blockedSet: Set<string>;
+    if (layout?.collision?.blocked?.length) {
+      blockedSet = new Set(
+        layout.collision.blocked.map((b) => `${b.x},${b.y}`)
+      );
+    } else {
+      blockedSet = new Set<string>();
+      for (let li = 0; li < objectLayers.length; li++) {
+        const layer = objectLayers[li];
+        for (let gy = 0; gy < effectiveHeight; gy++) {
+          for (let gx = 0; gx < effectiveWidth; gx++) {
+            if (layer[gy]?.[gx] && layer[gy][gx] !== EMPTY_TILE) {
+              blockedSet.add(`${gx},${gy}`);
+            }
+          }
+        }
       }
     }
-    ctx.restore();
+    if (showCollisions && blockedSet.size > 0) {
+      ctx.save();
+      ctx.translate(padX + pan.x, padY + pan.y);
+      ctx.scale(scale, scale);
+      ctx.scale(DISPLAY_SCALE, DISPLAY_SCALE);
+      ctx.strokeStyle = "rgba(255, 80, 80, 1)";
+      ctx.lineWidth = 1;
+      ctx.fillStyle = "rgba(255, 80, 80, 0.25)";
+      for (let gy = 0; gy < effectiveHeight; gy++) {
+        for (let gx = 0; gx < effectiveWidth; gx++) {
+          if (!blockedSet.has(`${gx},${gy}`)) continue;
+          const dx = gx * TILE_SIZE;
+          const dy = gy * TILE_SIZE;
+          ctx.fillRect(dx, dy, TILE_SIZE, TILE_SIZE);
+          ctx.strokeRect(dx, dy, TILE_SIZE, TILE_SIZE);
+        }
+      }
+      ctx.restore();
+    }
+
+    // Spots: small dot + text label
+    if (showSpots) {
+        const spotColors: Record<string, string> = {
+        desk: "rgba(100, 180, 255, 0.9)",
+        chair: "rgba(100, 255, 150, 0.9)",
+        meeting: "rgba(255, 200, 100, 0.9)",
+        closet: "rgba(180, 100, 255, 0.9)",
+      };
+      const spotLabels: Record<string, string> = {
+        desk: "work",
+        chair: "sit",
+        meeting: "meet",
+        closet: "find",
+      };
+      ctx.save();
+      ctx.translate(padX + pan.x, padY + pan.y);
+      ctx.scale(scale, scale);
+      ctx.scale(DISPLAY_SCALE, DISPLAY_SCALE);
+      ctx.font = "8px 'VT323', monospace";
+      ctx.textBaseline = "middle";
+      for (const [spotType, positions] of Object.entries(spots) as [
+        string,
+        { x: number; y: number }[],
+      ][]) {
+        const color = spotColors[spotType];
+        const label = spotLabels[spotType] ?? spotType;
+        for (const { x, y } of positions) {
+          const tx = Math.floor(x) * TILE_SIZE;
+          const ty = Math.floor(y) * TILE_SIZE;
+          const dotSize = 4;
+          const dotX = tx + 2;
+          const dotY = ty + TILE_SIZE / 2 - dotSize / 2;
+          ctx.fillStyle = color;
+          ctx.fillRect(dotX, dotY, dotSize, dotSize);
+          ctx.fillStyle = "rgba(255,255,255,0.95)";
+          ctx.fillText(label, dotX + dotSize + 2, ty + TILE_SIZE / 2);
+        }
+      }
+      ctx.restore();
+    }
   }, [
     layout,
     roomLayout,
@@ -240,7 +308,30 @@ export function LayoutPreview({ layout }: Props) {
     effectiveWidth,
     effectiveHeight,
     containerSize,
+    pan,
+    showCollisions,
+    showSpots,
   ]);
+
+  // Panning: drag to move view
+  const handleMouseDown = (e: React.MouseEvent) => {
+    panStartRef.current = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y };
+    setIsDragging(true);
+  };
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!panStartRef.current) return;
+    const dx = e.clientX - panStartRef.current.x;
+    const dy = e.clientY - panStartRef.current.y;
+    setPan({ x: panStartRef.current.panX + dx, y: panStartRef.current.panY + dy });
+  };
+  const handleMouseUp = () => {
+    panStartRef.current = null;
+    setIsDragging(false);
+  };
+  const handleMouseLeave = () => {
+    panStartRef.current = null;
+    setIsDragging(false);
+  };
 
   if (!layout) {
     return (
@@ -282,14 +373,88 @@ export function LayoutPreview({ layout }: Props) {
         Office Preview
       </h2>
       <p className="section-hint" style={{ marginBottom: 12 }}>
-        How your office will look in the exported game.
+        How your office will look in the exported game. Drag to pan.
       </p>
-      <div ref={containerRef} className="layout-preview-wrap">
-        <canvas
-          ref={canvasRef}
-          className="layout-preview-canvas"
-          style={{ display: "block" }}
-        />
+      <div
+        className="layout-preview-toggles"
+        style={{
+          display: "flex",
+          gap: 16,
+          alignItems: "center",
+          marginBottom: 10,
+          flexWrap: "wrap",
+        }}
+      >
+        <label
+          className="game-checkbox-label"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            cursor: "pointer",
+            fontSize: 11,
+            color: "var(--game-text-dim)",
+          }}
+        >
+          <input
+            type="checkbox"
+            className="game-checkbox"
+            checked={showCollisions}
+            onChange={(e) => setShowCollisions(e.target.checked)}
+          />
+          Collisions
+        </label>
+        <label
+          className="game-checkbox-label"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            cursor: "pointer",
+            fontSize: 11,
+            color: "var(--game-text-dim)",
+          }}
+        >
+          <input
+            type="checkbox"
+            className="game-checkbox"
+            checked={showSpots}
+            onChange={(e) => setShowSpots(e.target.checked)}
+          />
+          Spots
+        </label>
+      </div>
+      <div className="layout-preview-wrap">
+        <div
+          ref={containerRef}
+          className="layout-preview-inner"
+          style={{
+            aspectRatio: `${effectiveWidth} / ${effectiveHeight}`,
+            width: "100%",
+            maxWidth: "100%",
+            maxHeight: "100%",
+            height: "auto",
+          }}
+        >
+          <canvas
+            ref={canvasRef}
+            className="layout-preview-canvas"
+            style={{
+              display: "block",
+              cursor: isDragging ? "grabbing" : "grab",
+              userSelect: "none",
+              width: "auto",
+              height: "auto",
+              maxWidth: "100%",
+              maxHeight: "100%",
+            }}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseLeave}
+          title="Drag to pan"
+          />
+        </div>
       </div>
     </div>
   );

@@ -13,6 +13,14 @@ export interface Agent {
   id: string;
   name: string;
   role: string;
+  /** Role profile id (predefined or custom). When set, zipgen uses roleSummary/responsibilities/workingStyle when provided. */
+  roleId?: string;
+  /** Role summary for IDENTITY.md/SOUL.md (from RoleProfile or custom) */
+  roleSummary?: string;
+  /** Role responsibilities for SOUL.md (from RoleProfile or custom) */
+  roleResponsibilities?: string[];
+  /** Role working style for SOUL.md (from RoleProfile or custom) */
+  roleWorkingStyle?: string;
   daily_checklist: string[];
   tools_allowed: string[];
   tone: string;

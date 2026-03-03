@@ -90,6 +90,9 @@ export function cloneLayout(layout: OfficeLayout): OfficeLayout {
   if (layout.floorMaterial) {
     result.floorMaterial = layout.floorMaterial;
   }
+  if (layout.collision?.blocked?.length) {
+    result.collision = { blocked: layout.collision.blocked.map((b) => ({ ...b })) };
+  }
   return result;
 }
 

@@ -8,47 +8,70 @@ import { officeDesignJsonToOfficeLayout } from "@openclaw-office/zipgen";
 import { cloneLayout } from "./layoutPresets";
 import { LAYOUT_JSON_URL } from "./assets";
 import { DEFAULT_CHARACTER } from "./characterAssets";
+import { BUILTIN_ROLES } from "./roles";
+import type { RoleProfile } from "./roles";
 
 const BASE_AGENT = {
   daily_checklist: [] as string[],
-  tools_allowed: [] as string[],
-  tone: "professional",
-  context_budget_tokens: 4096,
   escalation_rules: {} as Record<string, unknown>,
 };
 
+/** Build agent from preset slot + role profile. Role data (role, tone, tools_allowed) comes from BUILTIN_ROLES. */
+function buildPresetAgent(
+  slot: { id: string; name: string; roleId: string; emoji: string; character: typeof DEFAULT_CHARACTER; spots: string[]; deps: string[]; context_budget_tokens?: number }
+): Agent {
+  const profile = BUILTIN_ROLES.find((r) => r.id === slot.roleId);
+  return {
+    ...BASE_AGENT,
+    id: slot.id,
+    name: slot.name,
+    role: profile?.name ?? slot.roleId,
+    roleId: slot.roleId,
+    tone: profile?.defaultTone ?? "professional",
+    tools_allowed: profile ? [...profile.defaultTools] : [],
+    context_budget_tokens: slot.context_budget_tokens ?? 4096,
+    emoji: slot.emoji,
+    character: slot.character,
+    spots: slot.spots,
+    deps: slot.deps,
+  };
+}
+
 /** Default CEO when user creates their own team */
-const DEFAULT_CEO: Agent = {
-  ...BASE_AGENT,
+const DEFAULT_CEO: Agent = buildPresetAgent({
   id: "ceo",
   name: "You",
-  role: "Chief Executive",
+  roleId: "ceo",
   emoji: "👔",
   character: { ...DEFAULT_CHARACTER, outfit: "outfit_1", hair: "hair_5" },
   spots: ["desk", "meeting"],
   deps: [],
-};
+});
+
+const VIRTUAL_IT_AGENCY_SLOTS = [
+  { id: "ceo", name: "James", roleId: "ceo", emoji: "👔", character: { ...DEFAULT_CHARACTER, outfit: "outfit_1", hair: "hair_5" }, spots: ["desk", "meeting"], deps: [] },
+  { id: "pm", name: "Sarah", roleId: "pm", emoji: "📋", character: { ...DEFAULT_CHARACTER, outfit: "outfit_2", hair: "hair_10" }, spots: ["desk", "meeting"], deps: ["ceo"] },
+  { id: "dev", name: "Mike", roleId: "dev", emoji: "💻", character: { ...DEFAULT_CHARACTER, outfit: "outfit_3", hair: "hair_15" }, spots: ["desk"], deps: ["pm"], context_budget_tokens: 8192 },
+  { id: "qa", name: "Lisa", roleId: "qa", emoji: "🔍", character: { ...DEFAULT_CHARACTER, outfit: "outfit_4", hair: "hair_20" }, spots: ["desk"], deps: ["dev"] },
+  { id: "designer", name: "Emma", roleId: "designer", emoji: "🎨", character: { ...DEFAULT_CHARACTER, outfit: "outfit_5", hair: "hair_25" }, spots: ["desk"], deps: ["pm"] },
+  { id: "researcher", name: "Alex", roleId: "researcher", emoji: "🔬", character: { ...DEFAULT_CHARACTER, outfit: "outfit_6", hair: "hair_30" }, spots: ["desk", "chair"], deps: ["pm"], context_budget_tokens: 8192 },
+];
 
 const PRESETS = {
   virtual_it_agency: {
     name: "Virtual IT Agency",
-    agents: [
-      { ...BASE_AGENT, id: "ceo", name: "James", role: "Chief Executive", emoji: "👔", character: { ...DEFAULT_CHARACTER, outfit: "outfit_1", hair: "hair_5" }, spots: ["desk", "meeting"], deps: [] },
-      { ...BASE_AGENT, id: "pm", name: "Sarah", role: "Project Manager", emoji: "📋", character: { ...DEFAULT_CHARACTER, outfit: "outfit_2", hair: "hair_10" }, spots: ["desk", "meeting"], deps: ["ceo"] },
-      { ...BASE_AGENT, id: "dev", name: "Mike", role: "Developer", emoji: "💻", character: { ...DEFAULT_CHARACTER, outfit: "outfit_3", hair: "hair_15" }, spots: ["desk"], deps: ["pm"], tools_allowed: ["read_file", "write_file", "run_terminal"], tone: "technical", context_budget_tokens: 8192 },
-      { ...BASE_AGENT, id: "qa", name: "Lisa", role: "QA Engineer", emoji: "🔍", character: { ...DEFAULT_CHARACTER, outfit: "outfit_4", hair: "hair_20" }, spots: ["desk"], deps: ["dev"], tools_allowed: ["read_file", "run_terminal"], tone: "analytical" },
-      { ...BASE_AGENT, id: "designer", name: "Emma", role: "UI/UX Designer", emoji: "🎨", character: { ...DEFAULT_CHARACTER, outfit: "outfit_5", hair: "hair_25" }, spots: ["desk"], deps: ["pm"], tools_allowed: ["read_file", "write_file"], tone: "creative" },
-      { ...BASE_AGENT, id: "researcher", name: "Alex", role: "Research", emoji: "🔬", character: { ...DEFAULT_CHARACTER, outfit: "outfit_6", hair: "hair_30" }, spots: ["desk", "chair"], deps: ["pm"], tools_allowed: ["read_file", "web_search"], tone: "curious", context_budget_tokens: 8192 },
-    ] as Agent[],
+    agents: VIRTUAL_IT_AGENCY_SLOTS.map((s) => buildPresetAgent(s)),
   },
 };
 
 const STORAGE_KEY = "pixel-office-state-v1";
+const STORAGE_KEY_ROLES = "pixel-office-custom-roles-v1";
 
 export default function App() {
   const [preset, setPreset] = useState<keyof typeof PRESETS | "__custom__" | null>(null);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [customRoles, setCustomRoles] = useState<RoleProfile[]>([]);
   const [officeLayout, setOfficeLayout] = useState<OfficeLayout | null>(null);
   const [initialized, setInitialized] = useState(false);
 
@@ -72,6 +95,15 @@ export default function App() {
     if (initialized) return;
     try {
       const raw = typeof window !== "undefined" ? window.localStorage.getItem(STORAGE_KEY) : null;
+      const rolesRaw = typeof window !== "undefined" ? window.localStorage.getItem(STORAGE_KEY_ROLES) : null;
+      if (rolesRaw) {
+        try {
+          const parsed = JSON.parse(rolesRaw);
+          if (Array.isArray(parsed)) setCustomRoles(parsed);
+        } catch {
+          // ignore
+        }
+      }
       if (raw) {
         const parsed = JSON.parse(raw);
         if (parsed.preset !== undefined) {
@@ -95,6 +127,15 @@ export default function App() {
     setSelectedId(PRESETS.virtual_it_agency.agents[0]?.id ?? null);
     setInitialized(true);
   }, [initialized]);
+
+  useEffect(() => {
+    if (!initialized || typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(STORAGE_KEY_ROLES, JSON.stringify(customRoles));
+    } catch (e) {
+      console.warn("Failed to save custom roles", e);
+    }
+  }, [customRoles, initialized]);
 
   // Persist to localStorage whenever state changes after init
   useEffect(() => {
@@ -121,6 +162,21 @@ export default function App() {
     }
   };
 
+  const handleReset = () => {
+    try {
+      if (typeof window !== "undefined") {
+        window.localStorage.removeItem(STORAGE_KEY);
+        window.localStorage.removeItem(STORAGE_KEY_ROLES);
+      }
+    } catch (e) {
+      console.warn("Failed to clear localStorage", e);
+    }
+    setPreset("virtual_it_agency");
+    setAgents([...PRESETS.virtual_it_agency.agents]);
+    setSelectedId(PRESETS.virtual_it_agency.agents[0]?.id ?? null);
+    setCustomRoles([]);
+  };
+
   return (
     <>
       <div className="app-container">
@@ -140,10 +196,13 @@ export default function App() {
               presetPresets={Object.entries(PRESETS).map(([k, v]) => ({ id: k, name: v.name }))}
               presetSelected={preset ?? "__custom__"}
               onPresetSelect={applyPreset}
+              onReset={handleReset}
               agents={agents}
               selectedId={selectedId}
               onSelect={setSelectedId}
               onChange={setAgents}
+              customRoles={customRoles}
+              onCustomRolesChange={setCustomRoles}
             />
           </section>
 
@@ -151,7 +210,7 @@ export default function App() {
             <LayoutPreview layout={officeLayout} />
           </section>
           <section className="app-section">
-            <DownloadZip agents={agents} officeLayout={officeLayout} />
+            <DownloadZip agents={agents} customRoles={customRoles} officeLayout={officeLayout} />
           </section>
         </>
       )}
