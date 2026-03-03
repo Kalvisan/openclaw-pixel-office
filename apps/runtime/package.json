@@ -14,6 +14,8 @@
   "dependencies": {
     "@openclaw-office/agent-control": "workspace:*",
     "@openclaw-office/core": "workspace:*",
+    "@openclaw-office/gateway-client": "workspace:*",
+    "@openclaw-office/runtime-live-office": "workspace:*",
     "@openclaw-office/storage": "workspace:*",
     "@openclaw-office/adapters": "workspace:*",
     "better-sqlite3": "^9.2.2",

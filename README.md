@@ -129,6 +129,7 @@ docs/
 - [Agent Architecture](docs/AGENT_ARCHITECTURE.md)
 - [ZIP Structure](docs/ZIP_STRUCTURE.md)
 - [Office Design Format](docs/OFFICE_DESIGN_FORMAT.md)
+- [Gateway Integration Plan](docs/GATEWAY_INTEGRATION_PLAN.md) — hybrid mode (ZIP + API), live office driven by Gateway
 
 ### Contributing
 
